@@ -1,6 +1,6 @@
-﻿# 🏢 CRM System
+﻿# 🏢 CRM Service
 
-A simple **Customer Relationship Management** system built with Go.
+A simple **Customer Relationship Management** service built with Go.
 # https://crm-system-seven-ecru.vercel.app/
 ## 🛠️ Built With
 
