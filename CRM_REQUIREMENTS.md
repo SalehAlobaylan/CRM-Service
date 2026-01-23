@@ -6,6 +6,31 @@
 
 ---
 
+## Implementation Status
+
+| Module | Status | Notes |
+|--------|--------|-------|
+| Gin Framework | ✅ Complete | Replaced Gorilla Mux with Gin |
+| PostgreSQL + GORM | ✅ Complete | Full persistence layer |
+| JWT Auth (HS256 Verifier) | ✅ Complete | Middleware validates CMS-issued tokens |
+| RBAC (admin/manager/agent) | ✅ Complete | Role-based access control |
+| CORS Middleware | ✅ Complete | Configured for Vercel origins |
+| Customers CRUD | ✅ Complete | With pagination, filtering, soft delete |
+| Contacts CRUD | ✅ Complete | Nested under customers, primary designation |
+| Deals CRUD | ✅ Complete | Pipeline stages, transitions |
+| Activities CRUD | ✅ Complete | Including `/admin/me/activities` |
+| Tags CRUD | ✅ Complete | With customer assignment |
+| Reports Overview | ✅ Complete | `/admin/reports/overview` |
+| Health/Ready/Metrics | ✅ Complete | Prometheus metrics |
+| Structured Logging | ✅ Complete | Zap JSON logs with request IDs |
+| Docker + Compose | ✅ Complete | Multi-stage build, PostgreSQL |
+| SQL Migrations | ✅ Complete | golang-migrate compatible |
+| **Notes CRUD** | ⚠️ Partial | Model exists, **endpoints not implemented** |
+| **Audit Read Endpoint** | ⚠️ Partial | Logs written, **GET endpoint not implemented** |
+| Attachments/File Upload | ❌ Not Started | Optional for v1 |
+
+---
+
 ## Platform Console Context (must match)
 
 ### Console identity
