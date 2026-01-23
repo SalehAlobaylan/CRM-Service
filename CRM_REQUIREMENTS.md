@@ -30,6 +30,31 @@
 
 ---
 
+## Mandatory Implementation Stack (v1)
+
+### Web framework
+- **Gin** must be the HTTP framework (replace Gorilla Mux routing).
+- Use Gin route groups and middleware for:
+  - `request_id`
+  - structured logging
+  - panic recovery
+  - CORS
+  - JWT auth verification on `/admin/*`
+
+### ORM + database
+- **PostgreSQL** must be the system of record.
+- **GORM** must be used for persistence.
+- Migrations must be included (choose one):
+  - `golang-migrate/migrate` (recommended), or
+  - GORM AutoMigrate only for local/dev (not for prod).
+
+### Packaging & deployment
+- The service must be runnable via:
+  - `docker build` + `docker run`
+  - `docker compose up` (with Postgres)
+
+---
+
 ## Purpose
 The CRM Service is the canonical backend for managing customer relationships (customers/contacts/deals/activities) and supporting operational workflows (assignments, follow-ups, notes, attachments, basic reporting).
 
@@ -38,7 +63,7 @@ Platform Console is the **frontend/control surface** for CRM operations (custome
 ---
 
 ## Current State (Repository)
-The current repo is a simple Go service using Gorilla Mux with JSON-file-backed customers CRUD endpoints (`/customers` etc.), running on port `:3000`.
+The current repo is a simple Go service using a `net/http` router (documented as Gorilla Mux) with JSON-file-backed customers CRUD endpoints (`/customers` etc.), running on port `:3000`.
 
 This requirements document defines what must be added/changed to make it production-ready and integratable with Platform Console.
 
@@ -264,9 +289,38 @@ Because Platform Console runs on Vercel (different origin), CRM must:
 - `JWT_ISSUER` (optional, if you want to check issuer claim).
 - `CORS_ALLOWED_ORIGINS` (comma-separated list; include Console’s Vercel domains).
 
+### CRM (database)
+- `DB_HOST`
+- `DB_PORT`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_SSLMODE` (e.g., `disable` for local compose)
+
 ### Platform Console
 - `NEXT_PUBLIC_CMS_BASE_URL`
 - `NEXT_PUBLIC_CRM_BASE_URL`
+
+---
+
+## Docker Requirements
+
+### Deliverables
+- A production-ready `Dockerfile` (multi-stage build recommended).
+- A `docker-compose.yml` that runs:
+  - `postgres` (required)
+  - `crm-service` (this repo)
+  - optional `migrate` job/container to apply DB migrations
+
+### Dockerfile requirements
+- Expose the CRM HTTP port (e.g., `3000`).
+- Read all config via environment variables.
+- Container should be stateless (no local JSON file DB).
+
+### docker-compose requirements (local dev)
+- Must include Postgres volume.
+- Must set CRM env vars (`DB_*`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`).
+- Must support `docker compose up` bringing the full stack up.
 
 ---
 
@@ -297,3 +351,4 @@ Because Platform Console runs on Vercel (different origin), CRM must:
 - CRM rejects missing/invalid tokens with `401` and disallowed roles with `403` for `/admin/*`.
 - Console handles `401` by clearing stored token and redirecting to `/login`.
 - Admin can manage customers/deals/activities via Console against CRM APIs (pagination + filtering supported).
+- CRM runs on Gin, persists to Postgres via GORM, and is runnable with Docker and docker-compose.
