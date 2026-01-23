@@ -1,38 +1,62 @@
 # CRM Service Requirements (for Platform Console Integration)
 
-**Target repo:** [SalehAlobaylan/CRM-Service](https://github.com/SalehAlobaylan/CRM-Service) [mcp_tool_github-mcp-direct_get_file_contents:0]
+**Target repo:** https://github.com/SalehAlobaylan/CRM-Service
 
-**Goal:** Refactor and scale the CRM service into a production-ready, API-first CRM backend that can be cleanly integrated into the existing **Platform Console** (admin dashboard) as a module, using HTTPS APIs and admin authentication. [mcp_tool_github-mcp-direct_get_file_contents:0]
+**Goal:** Refactor and scale the CRM service into a production-ready, API-first CRM backend that can be cleanly integrated into the existing **Platform Console** (admin dashboard) as a module, using HTTPS APIs and admin authentication.
+
+---
+
+## Platform Console Context (must match)
+
+### Console identity
+- **Name:** Platform Console
+- **Type:** Internal / Admin-only Web App (Control surface for platform + CRM operations).
+- **Deployment:** Standalone Next.js app (Vercel) calling backend services over HTTPS.
+
+### Services Console talks to
+- **CMS (Platform):** Admin actions + observability via CMS APIs.
+- **CRM Service:** CRM workflows and data via CRM APIs.
+
+### Auth decision (MVP)
+- **One shared login (SSO-like) with one JWT issuer**: Console authenticates once via **CMS** and uses the same token to call both CMS and CRM.
+- **JWT transport:** `Authorization: Bearer <token>` header on every request.
+- **JWT signing/verification:** **HS256** with a shared `JWT_SECRET` configured identically in CMS and CRM.
+  - **CMS is the issuer** (creates tokens).
+  - **CRM is verifier only** (validates token, enforces RBAC on `/admin/*`).
+
+### Token storage (Console, MVP)
+- Console stores token client-side (e.g., localStorage) and attaches Bearer token on every CMS/CRM request.
+- Console must handle `401` by clearing token and redirecting to `/login`.
 
 ---
 
 ## Purpose
-The CRM Service is the canonical backend for managing customer relationships (customers/contacts/deals/activities) and supporting operational workflows (assignments, follow-ups, notes, attachments, basic reporting). [mcp_tool_github-mcp-direct_get_file_contents:0]
+The CRM Service is the canonical backend for managing customer relationships (customers/contacts/deals/activities) and supporting operational workflows (assignments, follow-ups, notes, attachments, basic reporting).
 
-The Platform Console will act as the **frontend/control surface** for CRM operations (similar to how it manages `contentsources` and observes `contentitems.status` in the platform). [mcp_tool_github-mcp-direct_get_file_contents:0]
+Platform Console is the **frontend/control surface** for CRM operations (customers/deals/activities) while CRM Service remains the system-of-record and rule enforcer.
 
 ---
 
 ## Current State (Repository)
-The current repo is a simple Go service using Gorilla Mux with JSON-file-backed customers CRUD endpoints (`/customers` etc.), running on port `:3000`. [mcp_tool_github-mcp-direct_get_file_contents:0][mcp_tool_github-mcp-direct_get_file_contents:1]
+The current repo is a simple Go service using Gorilla Mux with JSON-file-backed customers CRUD endpoints (`/customers` etc.), running on port `:3000`.
 
-This requirements document defines what must be added/changed to make it production-ready and integratable with Platform Console. [mcp_tool_github-mcp-direct_get_file_contents:0]
+This requirements document defines what must be added/changed to make it production-ready and integratable with Platform Console.
 
 ---
 
 ## Scope
 
 ### In scope for v1 (Console-integratable CRM)
-1) **Admin authentication** compatible with Platform Console auth model (JWT/SSO), with a dedicated `/admin` route group.  
-2) **Core CRM modules**: Customers, Contacts, Deals, Activities/Tasks, Notes, Tags.  
-3) **Operational visibility** endpoints (list/detail with filtering, pagination, audit history metadata).  
-4) **Minimum “important” actions** (assignment, status/stage transitions, run automations like “schedule follow-up”).  
+1) **Admin auth verification** compatible with Platform Console auth model, with a dedicated `/admin` route group and RBAC.
+2) **Core CRM modules**: Customers, Contacts, Deals, Activities/Tasks, Notes, Tags.
+3) **Operational visibility** endpoints (list/detail with filtering + pagination).
+4) **Minimum “important” actions** (assignment, status/stage transitions, schedule follow-up).
 5) **Non-functional production readiness**: Postgres persistence, migrations, observability, CI checks.
 
 ### Out of scope for v1
 - End-user/customer portal UI.
 - Advanced marketing automation (drip campaigns), unless required by your main product.
-- Multi-tenant SaaS billing and tenant provisioning (can be future).
+- Multi-tenant SaaS billing and tenant provisioning (future).
 
 ---
 
@@ -44,25 +68,35 @@ This requirements document defines what must be added/changed to make it product
 - **Agent/SalesRep**: Can manage assigned customers/deals/activities.
 
 ### Authorization requirements
-- Every request must carry auth credentials (JWT or cookie session).
-- Enforce permissions on the server side (RBAC) and return clear 403/401 errors.
-- Prefer a dedicated route group: `/admin/*` for console use.
+- Every `/admin/*` request must include `Authorization: Bearer <token>`.
+- CRM must verify JWT with HS256 using `JWT_SECRET` and reject:
+  - Missing/invalid token → `401`
+  - Valid token but role not allowed → `403`
+- Prefer consistent RBAC checks across all endpoints.
 
 ---
 
 ## Functional Requirements
 
-## Admin Auth
-### FR-Auth-1: Login / token exchange
-- Provide a login/token exchange flow compatible with Platform Console (CMS-issued JWT/SSO style), even if CRM is a separate service.  
-- Support short-lived access token + refresh token (or cookie-based session).
+## Admin Auth (Verifier mode)
+> **Important:** For MVP, CRM does NOT issue tokens; CMS issues tokens and CRM verifies them.
 
-### FR-Auth-2: Session management
-- Logout support (token invalidation if supported; otherwise revoke refresh token).
-- `/admin/me` endpoint for “who am I” and role/permissions.
+### FR-Auth-1: Verify token + identity
+- `GET /admin/me` must return current user identity + role/permissions derived from the JWT claims.
+- JWT must include at minimum:
+  - `sub` (user id) OR `user_id`
+  - `role` (admin/manager/agent)
+  - `exp` (expiry)
 
-### FR-Auth-3: Service-to-service trust (optional)
-- Allow Platform Console BFF to call CRM using an internal service credential (mTLS or signed service JWT).
+### FR-Auth-2: Logout behavior (MVP)
+- CRM logout endpoint is optional.
+- Console can “logout” by clearing token client-side and redirecting to `/login`.
+
+### FR-Auth-3: RBAC enforcement
+- All CRM `/admin/*` endpoints must enforce RBAC.
+- Include an explicit permission model for:
+  - Read vs write
+  - “Own records” vs “all records” (future-friendly)
 
 ---
 
@@ -115,7 +149,7 @@ This requirements document defines what must be added/changed to make it product
 
 ### FR-Act-2: Reminders
 - Create activities with due dates.
-- Provide “my tasks” endpoint for a given user.
+- Provide “my tasks” endpoint for the current user.
 
 ---
 
@@ -155,13 +189,11 @@ This requirements document defines what must be added/changed to make it product
 
 ---
 
-## Required Backend Endpoints (Proposed)
+## Required Backend Endpoints (Updated)
 
 > These define what CRM must implement for Platform Console integration.
 
-### Admin Auth
-- `POST /admin/auth/login`
-- `POST /admin/auth/logout`
+### Admin Auth (CRM = verifier)
 - `GET /admin/me`
 
 ### Customers
@@ -210,12 +242,35 @@ This requirements document defines what must be added/changed to make it product
 
 ---
 
-## Non-Functional Requirements
+## Security & CORS (Vercel cross-origin)
 
-## Security
-- Admin-only access for `/admin/*` endpoints.
-- HTTPS only; secure cookies if using cookie auth.
-- CORS configured for Platform Console origin.
+### CORS requirements
+Because Platform Console runs on Vercel (different origin), CRM must:
+- Allow cross-origin requests from Console origin (production + staging + localhost).
+- Allow the `Authorization` header.
+- Allow methods: `GET, POST, PUT, PATCH, DELETE, OPTIONS`.
+- Apply CORS primarily to `/admin/*` (and optionally all routes).
+
+### 401/403 contract
+- Missing/invalid token → `401` with stable error shape.
+- Not allowed role → `403` with stable error shape.
+
+---
+
+## Environment Variables (Updated)
+
+### CRM (must match CMS)
+- `JWT_SECRET` (HS256 shared secret used to verify tokens).
+- `JWT_ISSUER` (optional, if you want to check issuer claim).
+- `CORS_ALLOWED_ORIGINS` (comma-separated list; include Console’s Vercel domains).
+
+### Platform Console
+- `NEXT_PUBLIC_CMS_BASE_URL`
+- `NEXT_PUBLIC_CRM_BASE_URL`
+
+---
+
+## Non-Functional Requirements
 
 ## Performance
 - Default page size ~20.
@@ -224,7 +279,7 @@ This requirements document defines what must be added/changed to make it product
 
 ## Reliability
 - Postgres as system of record (no JSON file DB).
-- Background jobs for notifications/reminders (Redis queue) if needed.
+- Background jobs for reminders (Redis queue) if needed.
 
 ## Observability
 - Structured logs (JSON) with request IDs.
@@ -237,25 +292,8 @@ This requirements document defines what must be added/changed to make it product
 
 ---
 
-## Integration Notes (Platform Console)
-
-### Recommended Integration
-- Platform Console should call CRM via `/admin/*` endpoints over HTTPS.
-- Prefer a BFF layer (Fastify) in Platform Console to:
-  - proxy requests
-  - handle cookies securely
-  - reduce CORS complexity
-
-### Environment variables
-- `CRM_BASE_URL` (internal)
-- `NEXT_PUBLIC_CRM_BASE_URL` (public)
-
----
-
 ## Acceptance Criteria (v1)
-- Admin can authenticate and access customer list via Platform Console.  
-- Admin can create/update a customer, assign it to a user, and see it in list/detail.  
-- Admin can create a deal and move it through stages.  
-- Admin can create activities with due dates and fetch “my tasks”.  
-- API supports pagination + filtering for list pages.  
-- Service runs against Postgres with migrations and is deployable with Docker.
+- Admin logs in once via CMS and Console can call both CMS and CRM using the same Bearer token.
+- CRM rejects missing/invalid tokens with `401` and disallowed roles with `403` for `/admin/*`.
+- Console handles `401` by clearing stored token and redirecting to `/login`.
+- Admin can manage customers/deals/activities via Console against CRM APIs (pagination + filtering supported).
