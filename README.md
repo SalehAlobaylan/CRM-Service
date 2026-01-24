@@ -50,70 +50,78 @@ The service will be available at `http://localhost:3000`
 ## 📋 API Endpoints
 
 ### Health & Metrics
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| GET | `/ready` | Readiness check |
-| GET | `/metrics` | Prometheus metrics |
+
+| Method | Endpoint   | Description        |
+| ------ | ---------- | ------------------ |
+| GET    | `/health`  | Health check       |
+| GET    | `/ready`   | Readiness check    |
+| GET    | `/metrics` | Prometheus metrics |
 
 ### Authentication (JWT Required)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/me` | Get current user info |
-| GET | `/admin/me/activities` | Get my assigned tasks |
+
+| Method | Endpoint               | Description           |
+| ------ | ---------------------- | --------------------- |
+| GET    | `/admin/me`            | Get current user info |
+| GET    | `/admin/me/activities` | Get my assigned tasks |
 
 ### Customers
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/customers` | List customers (paginated) |
-| POST | `/admin/customers` | Create customer |
-| GET | `/admin/customers/:id` | Get customer details |
-| PUT | `/admin/customers/:id` | Update customer |
-| PATCH | `/admin/customers/:id` | Partial update |
-| DELETE | `/admin/customers/:id` | Soft delete customer |
+
+| Method | Endpoint               | Description                |
+| ------ | ---------------------- | -------------------------- |
+| GET    | `/admin/customers`     | List customers (paginated) |
+| POST   | `/admin/customers`     | Create customer            |
+| GET    | `/admin/customers/:id` | Get customer details       |
+| PUT    | `/admin/customers/:id` | Update customer            |
+| PATCH  | `/admin/customers/:id` | Partial update             |
+| DELETE | `/admin/customers/:id` | Soft delete customer       |
 
 ### Contacts
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/customers/:id/contacts` | List customer contacts |
-| POST | `/admin/customers/:id/contacts` | Create contact |
-| PUT | `/admin/contacts/:id` | Update contact |
-| DELETE | `/admin/contacts/:id` | Delete contact |
+
+| Method | Endpoint                        | Description            |
+| ------ | ------------------------------- | ---------------------- |
+| GET    | `/admin/customers/:id/contacts` | List customer contacts |
+| POST   | `/admin/customers/:id/contacts` | Create contact         |
+| PUT    | `/admin/contacts/:id`           | Update contact         |
+| DELETE | `/admin/contacts/:id`           | Delete contact         |
 
 ### Deals
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/deals` | List deals (paginated) |
-| POST | `/admin/deals` | Create deal |
-| GET | `/admin/deals/:id` | Get deal details |
-| PUT | `/admin/deals/:id` | Update deal |
-| PATCH | `/admin/deals/:id` | Stage transition |
-| DELETE | `/admin/deals/:id` | Soft delete deal |
+
+| Method | Endpoint           | Description            |
+| ------ | ------------------ | ---------------------- |
+| GET    | `/admin/deals`     | List deals (paginated) |
+| POST   | `/admin/deals`     | Create deal            |
+| GET    | `/admin/deals/:id` | Get deal details       |
+| PUT    | `/admin/deals/:id` | Update deal            |
+| PATCH  | `/admin/deals/:id` | Stage transition       |
+| DELETE | `/admin/deals/:id` | Soft delete deal       |
 
 ### Activities
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/activities` | List activities |
-| POST | `/admin/activities` | Create activity |
-| GET | `/admin/activities/:id` | Get activity details |
-| PUT | `/admin/activities/:id` | Update activity |
-| PATCH | `/admin/activities/:id` | Complete/cancel activity |
-| DELETE | `/admin/activities/:id` | Delete activity |
+
+| Method | Endpoint                | Description              |
+| ------ | ----------------------- | ------------------------ |
+| GET    | `/admin/activities`     | List activities          |
+| POST   | `/admin/activities`     | Create activity          |
+| GET    | `/admin/activities/:id` | Get activity details     |
+| PUT    | `/admin/activities/:id` | Update activity          |
+| PATCH  | `/admin/activities/:id` | Complete/cancel activity |
+| DELETE | `/admin/activities/:id` | Delete activity          |
 
 ### Tags
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/tags` | List all tags |
-| POST | `/admin/tags` | Create tag (admin only) |
-| PUT | `/admin/tags/:id` | Update tag (admin only) |
-| DELETE | `/admin/tags/:id` | Delete tag (admin only) |
-| POST | `/admin/customers/:id/tags/:tagId` | Assign tag |
-| DELETE | `/admin/customers/:id/tags/:tagId` | Remove tag |
+
+| Method | Endpoint                           | Description             |
+| ------ | ---------------------------------- | ----------------------- |
+| GET    | `/admin/tags`                      | List all tags           |
+| POST   | `/admin/tags`                      | Create tag (admin only) |
+| PUT    | `/admin/tags/:id`                  | Update tag (admin only) |
+| DELETE | `/admin/tags/:id`                  | Delete tag (admin only) |
+| POST   | `/admin/customers/:id/tags/:tagId` | Assign tag              |
+| DELETE | `/admin/customers/:id/tags/:tagId` | Remove tag              |
 
 ### Reports
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/admin/reports/overview` | Dashboard overview |
+
+| Method | Endpoint                  | Description        |
+| ------ | ------------------------- | ------------------ |
+| GET    | `/admin/reports/overview` | Dashboard overview |
 
 ## 🔐 Authentication
 
@@ -126,6 +134,7 @@ Authorization: Bearer <jwt_token>
 JWT tokens are issued by the CMS service. CRM only verifies tokens using the shared `JWT_SECRET`.
 
 ### JWT Claims Required
+
 ```json
 {
   "user_id": 123,
@@ -135,27 +144,28 @@ JWT tokens are issued by the CMS service. CRM only verifies tokens using the sha
 ```
 
 ### Roles & Permissions
-| Role | Permissions |
-|------|------------|
-| admin | Full access, manage tags/config |
-| manager | Manage all records |
-| agent | Manage own assigned records |
+
+| Role    | Permissions                     |
+| ------- | ------------------------------- |
+| admin   | Full access, manage tags/config |
+| manager | Manage all records              |
+| agent   | Manage own assigned records     |
 
 ## ⚙️ Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SERVER_PORT` | HTTP port | `3000` |
-| `ENVIRONMENT` | `development` or `production` | `development` |
-| `DB_HOST` | PostgreSQL host | `localhost` |
-| `DB_PORT` | PostgreSQL port | `5432` |
-| `DB_NAME` | Database name | `crm_db` |
-| `DB_USER` | Database user | `postgres` |
-| `DB_PASSWORD` | Database password | `postgres` |
-| `DB_SSLMODE` | SSL mode | `disable` |
-| `JWT_SECRET` | HS256 signing key | (required) |
-| `JWT_ISSUER` | Expected issuer | `cms` |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated origins | `http://localhost:3000` |
+| Variable               | Description                   | Default                 |
+| ---------------------- | ----------------------------- | ----------------------- |
+| `SERVER_PORT`          | HTTP port                     | `3000`                  |
+| `ENVIRONMENT`          | `development` or `production` | `development`           |
+| `DB_HOST`              | PostgreSQL host               | `localhost`             |
+| `DB_PORT`              | PostgreSQL port               | `5432`                  |
+| `DB_NAME`              | Database name                 | `crm_db`                |
+| `DB_USER`              | Database user                 | `postgres`              |
+| `DB_PASSWORD`          | Database password             | `postgres`              |
+| `DB_SSLMODE`           | SSL mode                      | `disable`               |
+| `JWT_SECRET`           | HS256 signing key             | (required)              |
+| `JWT_ISSUER`           | Expected issuer               | `cms`                   |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated origins       | `http://localhost:3000` |
 
 ## 📁 Project Structure
 
@@ -197,12 +207,14 @@ docker compose up -d
 ## 📊 Query Examples
 
 ### List Customers with Filters
+
 ```bash
 curl "http://localhost:3000/admin/customers?status=active&page=1&page_size=20&search=john" \
   -H "Authorization: Bearer <token>"
 ```
 
 ### Create a Deal
+
 ```bash
 curl -X POST "http://localhost:3000/admin/deals" \
   -H "Authorization: Bearer <token>" \
