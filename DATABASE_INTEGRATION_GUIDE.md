@@ -48,12 +48,7 @@ Update your `.env` file to point to the shared platform database.
 
 ```env
 # Shared Database
-DB_HOST=your-shared-postgres-host
-DB_PORT=5432
-DB_NAME=turfa_platform
-DB_USER=postgres
-DB_PASSWORD=your-password
-DB_SSLMODE=disable
+DATABASE_URL=postgres://postgres:your-password@your-shared-postgres-host:5432/turfa_platform?sslmode=disable
 
 # Authentication (Must match CMS)
 JWT_SECRET=your-shared-secret-key

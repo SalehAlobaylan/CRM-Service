@@ -12,12 +12,7 @@ type Config struct {
 	ServerPort string
 
 	// Database
-	DBHost     string
-	DBPort     string
-	DBName     string
-	DBUser     string
-	DBPassword string
-	DBSSLMode  string
+	DatabaseURL string
 
 	// JWT
 	JWTSecret string
@@ -37,12 +32,7 @@ func Load() *Config {
 		ServerPort: getEnv("SERVER_PORT", "3000"),
 
 		// Database
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "5432"),
-		DBName:     getEnv("DB_NAME", "crm_db"),
-		DBUser:     getEnv("DB_USER", "postgres"),
-		DBPassword: getEnv("DB_PASSWORD", "postgres"),
-		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/crm_db?sslmode=disable"),
 
 		// JWT
 		JWTSecret: getEnv("JWT_SECRET", "your-super-secret-key-change-in-production"),
@@ -104,11 +94,5 @@ func (c *Config) IsProduction() bool {
 
 // GetDSN returns the PostgreSQL connection string
 func (c *Config) GetDSN() string {
-	return "host=" + c.DBHost +
-		" user=" + c.DBUser +
-		" password=" + c.DBPassword +
-		" dbname=" + c.DBName +
-		" port=" + c.DBPort +
-		" sslmode=" + c.DBSSLMode +
-		" TimeZone=UTC"
+	return c.DatabaseURL
 }
