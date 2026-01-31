@@ -1,21 +1,21 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # Shared Turfa Platform Database (PostgreSQL)
   postgres:
     image: postgres:16-alpine
-    container_name: crm-postgres
+    container_name: turfa-platform-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: crm_db
+      POSTGRES_DB: turfa_platform
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d crm_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d turfa_platform"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,11 +34,11 @@ services:
       SERVER_PORT: "3000"
       ENVIRONMENT: ${ENVIRONMENT:-development}
 
-      # Database
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/crm_db?sslmode=disable
+      # Shared Database (Turfa Platform)
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/turfa_platform?sslmode=disable
 
-      # JWT
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-key-change-in-production}
+      # Shared JWT (Must match CMS)
+      JWT_SECRET: ${JWT_SECRET:-your-shared-secret-key}
       JWT_ISSUER: ${JWT_ISSUER:-cms}
 
       # CORS
@@ -62,7 +62,7 @@ services:
       - ./migrations:/migrations
     command: [
       "-path", "/migrations",
-      "-database", "postgres://postgres:postgres@postgres:5432/crm_db?sslmode=disable",
+      "-database", "postgres://postgres:postgres@postgres:5432/turfa_platform?sslmode=disable",
       "up"
     ]
     depends_on:
@@ -75,4 +75,4 @@ volumes:
 
 networks:
   default:
-    name: crm-network
+    name: turfa-platform-network

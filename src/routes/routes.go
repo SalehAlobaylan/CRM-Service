@@ -1,10 +1,10 @@
 package routes
 
 import (
-	"github.com/SalehAlobaylan/CRM-Service/internal/config"
-	"github.com/SalehAlobaylan/CRM-Service/internal/handlers"
-	"github.com/SalehAlobaylan/CRM-Service/internal/middleware"
-	"github.com/SalehAlobaylan/CRM-Service/internal/models"
+	"github.com/SalehAlobaylan/CRM-Service/src/config"
+	"github.com/SalehAlobaylan/CRM-Service/src/handlers"
+	"github.com/SalehAlobaylan/CRM-Service/src/middleware"
+	"github.com/SalehAlobaylan/CRM-Service/src/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

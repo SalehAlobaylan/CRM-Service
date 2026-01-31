@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/SalehAlobaylan/CRM-Service/internal/middleware"
-	"github.com/SalehAlobaylan/CRM-Service/internal/models"
+	"github.com/SalehAlobaylan/CRM-Service/src/middleware"
+	"github.com/SalehAlobaylan/CRM-Service/src/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

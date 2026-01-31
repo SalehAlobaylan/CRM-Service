@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/SalehAlobaylan/CRM-Service/internal/config"
-	"github.com/SalehAlobaylan/CRM-Service/internal/database"
-	"github.com/SalehAlobaylan/CRM-Service/internal/middleware"
-	"github.com/SalehAlobaylan/CRM-Service/internal/routes"
+	"github.com/SalehAlobaylan/CRM-Service/src/config"
+	"github.com/SalehAlobaylan/CRM-Service/src/database"
+	"github.com/SalehAlobaylan/CRM-Service/src/middleware"
+	"github.com/SalehAlobaylan/CRM-Service/src/routes"
 )
 
 func main() {
@@ -36,14 +36,10 @@ func main() {
 
 	middleware.Logger.Info("Connected to database")
 
-	// Run migrations (AutoMigrate for development)
+	// Note: Migrations are handled by golang-migrate tool
+	// Run pipeline stages seeding (idempotent)
 	if cfg.IsDevelopment() {
-		middleware.Logger.Info("Running database migrations...")
-		if err := database.AutoMigrate(db); err != nil {
-			middleware.Logger.Fatal("Failed to run migrations: " + err.Error())
-		}
-
-		// Seed default data
+		middleware.Logger.Info("Seeding pipeline stages...")
 		if err := database.SeedPipelineStages(db); err != nil {
 			middleware.Logger.Warn("Failed to seed pipeline stages: " + err.Error())
 		}

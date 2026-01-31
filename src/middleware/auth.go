@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/SalehAlobaylan/CRM-Service/internal/models"
+	"github.com/SalehAlobaylan/CRM-Service/src/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )

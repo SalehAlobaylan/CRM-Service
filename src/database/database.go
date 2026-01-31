@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/SalehAlobaylan/CRM-Service/internal/config"
-	"github.com/SalehAlobaylan/CRM-Service/internal/models"
+	"github.com/SalehAlobaylan/CRM-Service/src/config"
+	"github.com/SalehAlobaylan/CRM-Service/src/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

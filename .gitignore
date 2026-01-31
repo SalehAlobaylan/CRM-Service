@@ -37,6 +37,12 @@ logs/
 # Database files (old JSON-based storage)
 DB/
 
+# Archive (legacy code)
+archive/
+
+# Scripts (empty but can be used for future utilities)
+scripts/
+
 # Temporary files
 tmp/
 temp/

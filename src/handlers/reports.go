@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/SalehAlobaylan/CRM-Service/internal/models"
+	"github.com/SalehAlobaylan/CRM-Service/src/models"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
