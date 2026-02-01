@@ -13,9 +13,15 @@ import (
 	"github.com/SalehAlobaylan/CRM-Service/src/database"
 	"github.com/SalehAlobaylan/CRM-Service/src/middleware"
 	"github.com/SalehAlobaylan/CRM-Service/src/routes"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Load .env file
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Warning: Error loading .env file: %v", err)
+	}
+
 	// Load configuration
 	cfg := config.Load()
 

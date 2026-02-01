@@ -34,7 +34,27 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	reportHandler := handlers.NewReportHandler(db)
 	healthHandler := handlers.NewHealthHandler(db)
 
-	// Public routes (no auth required)
+	// Welcome endpoint
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "Welcome to Customer Relationship Management API",
+			"version": "1.0.0",
+			"endpoints": gin.H{
+				"health":       "/health",
+				"ready":        "/ready",
+				"metrics":      "/metrics",
+				"admin_me":     "/admin/me",
+				"customers":    "/admin/customers",
+				"contacts":     "/admin/customers/:id/contacts",
+				"deals":        "/admin/deals",
+				"activities":   "/admin/activities",
+				"tags":         "/admin/tags",
+				"reports":      "/admin/reports/overview",
+				"documentation": "/docs",
+			},
+		})
+	})
+
 	router.GET("/health", healthHandler.Health)
 	router.GET("/ready", healthHandler.Ready)
 	router.GET("/metrics", healthHandler.Metrics())
