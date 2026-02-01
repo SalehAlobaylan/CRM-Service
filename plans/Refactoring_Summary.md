@@ -40,10 +40,8 @@ CRM-Service/
 ### After (CMS-Aligned)
 ```
 CRM-Service/
-├── cmd/
-│   └── server/
-│       └── main.go              # Entry point
-├── src/                         # NEW: All application code
+├── src/                         # All application code
+│   └── main.go                  # Entry point
 │   ├── config/                  # Configuration loading
 │   ├── database/                # Database connection & seeding
 │   ├── handlers/                # HTTP request handlers
@@ -108,7 +106,7 @@ All Go files updated to use:
 ### Files Updated
 
 1. **All files in `src/` directory** - Updated recursively
-2. **`cmd/server/main.go`** - Updated 4 imports:
+2. **`src/main.go`** - Updated 4 imports:
    - `config`
    - `database`
    - `middleware`
@@ -151,22 +149,22 @@ module github.com/SalehAlobaylan/CRM-Service
 
 ### Dockerfile
 
-No changes needed - already uses correct path:
+Updated to use new path:
 ```dockerfile
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
     -ldflags="-w -s" \
-    -o /app/crm-service ./cmd/server
+    -o /app/crm-service ./src
 ```
 
 ### Makefile
 
-No changes needed - already uses correct paths:
+Update paths (if Makefile exists):
 ```makefile
 build: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -ldflags="-w -s" \
-    -o bin/crm-service ./cmd/server
+    -o bin/crm-service ./src
 
-run: go run ./cmd/server/main.go
+run: go run ./src/main.go
 ```
 
 ---
@@ -189,7 +187,7 @@ run: go run ./cmd/server/main.go
 ✅ **Build Successful**
 
 ```bash
-go build -o /tmp/crm-test ./cmd/server
+go build -o /tmp/crm-test ./src
 # Build completed with no errors
 ```
 
@@ -200,11 +198,11 @@ go build -o /tmp/crm-test ./cmd/server
 ### Run Locally
 
 ```bash
-# Using Makefile
+# Using Makefile (if exists)
 make run
 
 # Or directly
-go run ./cmd/server/main.go
+go run ./src/main.go
 ```
 
 ### Run in Docker
@@ -235,7 +233,7 @@ Both services now use:
 | Directory | CRM Service | CMS Service |
 |-----------|--------------|-------------|
 | Application code | `src/` | `src/` ✅ |
-| Entry point | `cmd/server/` | `cmd/server/` ✅ |
+| Entry point | `src/main.go` | `cmd/server/main.go` |
 | Migrations | `migrations/` | `migrations/` ✅ |
 | Tests | Not implemented | `src/tests/` |
 | Utils | `scripts/` | `src/utils/` |
@@ -275,12 +273,14 @@ The database integration remains intact:
 
 - Project structure aligned with CMS (Option 2)
 - All code moved to `src/` directory
+- Entry point moved to `src/main.go` (no cmd/ folder)
 - Legacy code preserved in `archive/`
 - Import paths updated to `src/` prefix
 - Build verification successful
 - No data loss (all files preserved)
+- Dockerfile and README updated to reflect new location
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** January 31, 2026
+**Document Version:** 1.1
+**Last Updated:** February 1, 2026

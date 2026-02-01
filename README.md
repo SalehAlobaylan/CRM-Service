@@ -140,7 +140,7 @@ docker-compose --profile migrate up migrate
 
 ```bash
 # Run directly
-go run ./cmd/server/main.go
+go run src/main.go
 ```
 
 #### Using Docker
@@ -252,22 +252,20 @@ All admin endpoints require `Authorization: Bearer <token>` header.
 
 ```
 CRM-Service/
-├── cmd/
-│   └── server/
-│       └── main.go          # Application entry point
-├── src/                         # Main application code
-│   ├── config/                  # Configuration loading
-│   ├── database/                # Database connection
-│   ├── handlers/                # HTTP request handlers
-│   ├── middleware/              # Custom middleware (auth, CORS, logging)
-│   ├── models/                  # Data models
-│   └── routes/                  # Route definitions
-├── migrations/                   # SQL migrations
-├── context/                      # Context documentation
-├── docker-compose.yml       # Docker Compose configuration
-├── dockerfile              # Docker image build
-├── go.mod                  # Go module dependencies
-└── .env.example            # Environment variables template
+├── src/
+│   ├── main.go                 # Application entry point
+│   ├── config/                 # Configuration loading
+│   ├── database/               # Database connection
+│   ├── handlers/               # HTTP request handlers
+│   ├── middleware/             # Custom middleware (auth, CORS, logging)
+│   ├── models/                 # Data models
+│   └── routes/                 # Route definitions
+├── migrations/                 # SQL migrations
+├── context/                    # Context documentation
+├── docker-compose.yml          # Docker Compose configuration
+├── dockerfile                  # Docker image build
+├── go.mod                      # Go module dependencies
+└── .env                        # Environment variables
 ```
 
 ## Database Integration

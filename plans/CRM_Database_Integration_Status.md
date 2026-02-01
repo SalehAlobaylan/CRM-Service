@@ -37,7 +37,7 @@ The following configuration files have been updated to use the shared database:
 
 ### 1.3 Code Changes
 
-**`cmd/server/main.go`** - Modified:
+**`src/main.go`** - Modified:
 - Removed GORM AutoMigrate call (tables created via golang-migrate)
 - Kept pipeline stages seeding (idempotent, safe to run)
 
@@ -341,8 +341,9 @@ For issues related to:
 ### Modified Files:
 - `.env.example`
 - `docker-compose.yml`
-- `cmd/server/main.go`
+- `src/main.go`
 - `README.md`
+- `dockerfile` (updated build path to `./src`)
 
 ### New Files:
 - `Makefile`
