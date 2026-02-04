@@ -8,7 +8,6 @@ import (
 	"github.com/SalehAlobaylan/CRM-Service/src/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"gorm.io/gorm"
 )
 
 // JWTClaims represents the JWT claims structure from CMS issuer
@@ -116,37 +115,14 @@ func JWTAuth(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// Handle two types of tokens:
-		// 1. CRM-issued tokens: have user_id, used for CRM users in CRM database
-		// 2. CMS-issued tokens: have sub (UUID) and permissions, used for platform admins
-		isCMSAdminToken := claims.Sub != "" && len(claims.Permissions) > 0
-
-		var user interface{}
-		var userID uint
-
-		if isCMSAdminToken {
-			// CMS admin token - create user object from claims directly (no DB lookup needed)
-			user = map[string]interface{}{
-				"id":          claims.Sub,
-				"email":       claims.Email,
-				"role":        claims.Role,
-				"permissions": claims.Permissions,
-			}
-			userID = 0
-		} else {
-			// CRM user token - look up user in CRM database
-			userID = claims.UserID
-			db := c.MustGet("db").(*gorm.DB)
-			var userModel models.User
-			if err := db.First(&userModel, userID).Error; err != nil {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
-					Error:   "unauthorized",
-					Code:    "USER_NOT_FOUND",
-					Message: "User not found",
-				})
-				return
-			}
-			user = userModel
+		// Build user from CMS-issued token claims
+		userID := claims.UserID
+		user := models.User{
+			ID:       userID,
+			Email:    claims.Email,
+			Name:     claims.Name,
+			Role:     claims.Role,
+			IsActive: true,
 		}
 
 		// Store user info in context
