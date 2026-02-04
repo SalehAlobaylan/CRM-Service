@@ -8,16 +8,23 @@ import (
 	"github.com/SalehAlobaylan/CRM-Service/src/models"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
-// JWTClaims represents the JWT claims structure
+// JWTClaims represents the JWT claims structure from CMS issuer
 type JWTClaims struct {
-	UserID uint   `json:"user_id,omitempty"`
-	Sub    string `json:"sub,omitempty"`
-	Email  string `json:"email,omitempty"`
-	Name   string `json:"name,omitempty"`
-	Role   string `json:"role"`
+	UserID      uint     `json:"user_id,omitempty"`
+	Sub         string   `json:"sub,omitempty"`
+	Email       string   `json:"email,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	Role        string   `json:"role"`
+	Permissions []string `json:"permissions,omitempty"`
 	jwt.RegisteredClaims
+}
+
+// GetUserIDFromClaims extracts user ID from claims (sub contains UUID for CMS admin users)
+func GetUserIDFromClaims(claims *JWTClaims) uint {
+	return claims.UserID
 }
 
 // Context keys for user information
@@ -99,13 +106,6 @@ func JWTAuth(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// Extract user ID (could be in 'sub' or 'user_id')
-		userID := claims.UserID
-		if userID == 0 && claims.Sub != "" {
-			// Sub claim might contain user ID as string - we'll just use 0 for now
-			// In production, you might parse this from the sub field
-		}
-
 		// Validate role is present
 		if claims.Role == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
@@ -116,13 +116,37 @@ func JWTAuth(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
-		// Create user object from claims
-		user := models.User{
-			ID:       userID,
-			Email:    claims.Email,
-			Name:     claims.Name,
-			Role:     claims.Role,
-			IsActive: true,
+		// Handle two types of tokens:
+		// 1. CRM-issued tokens: have user_id, used for CRM users in CRM database
+		// 2. CMS-issued tokens: have sub (UUID) and permissions, used for platform admins
+		isCMSAdminToken := claims.Sub != "" && len(claims.Permissions) > 0
+
+		var user interface{}
+		var userID uint
+
+		if isCMSAdminToken {
+			// CMS admin token - create user object from claims directly (no DB lookup needed)
+			user = map[string]interface{}{
+				"id":          claims.Sub,
+				"email":       claims.Email,
+				"role":        claims.Role,
+				"permissions": claims.Permissions,
+			}
+			userID = 0
+		} else {
+			// CRM user token - look up user in CRM database
+			userID = claims.UserID
+			db := c.MustGet("db").(*gorm.DB)
+			var userModel models.User
+			if err := db.First(&userModel, userID).Error; err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
+					Error:   "unauthorized",
+					Code:    "USER_NOT_FOUND",
+					Message: "User not found",
+				})
+				return
+			}
+			user = userModel
 		}
 
 		// Store user info in context

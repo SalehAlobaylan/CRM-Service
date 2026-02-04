@@ -23,6 +23,10 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 	router.Use(middleware.Recovery())
 	router.Use(middleware.StructuredLogger())
 	router.Use(middleware.CORS(cfg.CORSAllowedOrigins))
+	router.Use(func(c *gin.Context) {
+		c.Set("db", db)
+		c.Next()
+	})
 
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler()
@@ -40,16 +44,16 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 			"message": "Welcome to Customer Relationship Management API",
 			"version": "1.0.0",
 			"endpoints": gin.H{
-				"health":       "/health",
-				"ready":        "/ready",
-				"metrics":      "/metrics",
-				"admin_me":     "/admin/me",
-				"customers":    "/admin/customers",
-				"contacts":     "/admin/customers/:id/contacts",
-				"deals":        "/admin/deals",
-				"activities":   "/admin/activities",
-				"tags":         "/admin/tags",
-				"reports":      "/admin/reports/overview",
+				"health":        "/health",
+				"ready":         "/ready",
+				"metrics":       "/metrics",
+				"admin_me":      "/admin/me",
+				"customers":     "/admin/customers",
+				"contacts":      "/admin/customers/:id/contacts",
+				"deals":         "/admin/deals",
+				"activities":    "/admin/activities",
+				"tags":          "/admin/tags",
+				"reports":       "/admin/reports/overview",
 				"documentation": "/docs",
 			},
 		})
