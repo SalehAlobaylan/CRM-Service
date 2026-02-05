@@ -254,7 +254,7 @@ Both services now use:
 ### For Database Integration
 
 The database integration remains intact:
-- ✅ Configuration points to `turfa_platform` database
+- ✅ Configuration points to `wahb_platform` database
 - ✅ GORM models in `src/models/` still valid
 - ✅ Migrations in `migrations/` still work
 - ✅ Shared JWT_SECRET configuration preserved

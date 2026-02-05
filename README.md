@@ -1,6 +1,6 @@
 # CRM Service
 
-A production-ready, API-first CRM backend for Turfa Platform, integrated with shared `turfa_platform` database.
+A production-ready, API-first CRM backend for Wahb Platform, integrated with shared `wahb_platform` database.
 
 ## Overview
 
@@ -20,7 +20,7 @@ The CRM Service is a Go-based backend that provides customer relationship manage
 
 ### Shared Database
 
-The CRM Service now shares `turfa_platform` database with CMS Service:
+The CRM Service now shares `wahb_platform` database with CMS Service:
 
 | Service | Tables | Primary Key Type | Soft Delete |
 |---------|--------|------------------|-------------|
@@ -89,8 +89,8 @@ cp .env.example .env
 Edit `.env` with your settings:
 
 ```env
-# Shared Database (Turfa Platform)
-DATABASE_URL=postgres://postgres:your-password@your-postgres-host:5432/turfa_platform?sslmode=disable
+# Shared Database (Wahb Platform)
+DATABASE_URL=postgres://postgres:your-password@your-postgres-host:5432/wahb_platform?sslmode=disable
 
 # Shared JWT (Must match CMS)
 JWT_SECRET=your-shared-secret-key
@@ -270,7 +270,7 @@ CRM-Service/
 
 ## Database Integration
 
-For detailed information about database integration with Turfa Platform, see:
+For detailed information about database integration with Wahb Platform, see:
 - [DATABASE_INTEGRATION_GUIDE.md](./DATABASE_INTEGRATION_GUIDE.md)
 
 ## Security Considerations
@@ -289,7 +289,7 @@ Required environment variables for production:
 ```env
 SERVER_PORT=3000
 ENVIRONMENT=production
-DATABASE_URL=postgres://user:pass@host:5432/turfa_platform?sslmode=require
+DATABASE_URL=postgres://user:pass@host:5432/wahb_platform?sslmode=require
 JWT_SECRET=<strong-random-secret>
 JWT_ISSUER=cms
 CORS_ALLOWED_ORIGINS=https://console.yourdomain.com
@@ -319,7 +319,7 @@ docker run -d \
 
 ```bash
 # Test database connection
-psql "postgres://user:pass@host:5432/turfa_platform?sslmode=disable"
+psql "postgres://user:pass@host:5432/wahb_platform?sslmode=disable"
 
 # Check migration status
 migrate -path ./migrations -database "${DATABASE_URL}" version

@@ -1,9 +1,9 @@
 # CRM and CMS Database Integration Guide
 
-This document outlines the strategy and technical details for merging the CRM Service logic into the shared Turfa Platform database.
+This document outlines the strategy and technical details for merging the CRM Service logic into the shared Wahb Platform database.
 
 ## 1. Architecture Overview
-The CRM Service and CMS Service now share a single PostgreSQL database instance (`turfa_platform`). 
+The CRM Service and CMS Service now share a single PostgreSQL database instance (`wahb_platform`). 
 
 - **CMS Tables**: Use `uuid` for primary keys and public IDs.
 - **CRM Tables**: Use `SERIAL` (integer) for primary keys and include `deleted_at` for soft deletes.
@@ -48,7 +48,7 @@ Update your `.env` file to point to the shared platform database.
 
 ```env
 # Shared Database
-DATABASE_URL=postgres://postgres:your-password@your-shared-postgres-host:5432/turfa_platform?sslmode=disable
+DATABASE_URL=postgres://postgres:your-password@your-shared-postgres-host:5432/wahb_platform?sslmode=disable
 
 # Authentication (Must match CMS)
 JWT_SECRET=your-shared-secret-key
@@ -59,7 +59,7 @@ JWT_ISSUER=cms
 Apply the CRM schema to the existing CMS database using the `golang-migrate` tool:
 
 ```bash
-migrate -database "postgres://user:password@host:5432/turfa_platform?sslmode=disable" -path ./migrations up
+migrate -database "postgres://user:password@host:5432/wahb_platform?sslmode=disable" -path ./migrations up
 ```
 
 ---
@@ -72,5 +72,5 @@ migrate -database "postgres://user:password@host:5432/turfa_platform?sslmode=dis
 ---
 
 ## 6. Maintenance
-- **Backups**: Since all data is now in one database, a single backup of `turfa_platform` covers both services.
+- **Backups**: Since all data is now in one database, a single backup of `wahb_platform` covers both services.
 - **Cleanup**: CRM leverages **Soft Deletes**. Records are not physically removed unless the database is manually purged.
