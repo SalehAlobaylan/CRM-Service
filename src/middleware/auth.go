@@ -105,6 +105,16 @@ func JWTAuth(jwtSecret string) gin.HandlerFunc {
 			return
 		}
 
+		// Validate issuer - must be from CMS service
+		if claims.Issuer != "" && claims.Issuer != "cms-service" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
+				Error:   "unauthorized",
+				Code:    "INVALID_ISSUER",
+				Message: "Token issuer must be cms-service",
+			})
+			return
+		}
+
 		// Validate role is present
 		if claims.Role == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, ErrorResponse{
@@ -116,12 +126,25 @@ func JWTAuth(jwtSecret string) gin.HandlerFunc {
 		}
 
 		// Build user from CMS-issued token claims
+		// For admin-only tokens (UserID == 0, Sub contains admin UUID), use dummy ID = 1
+		// and set Name to the admin UUID for display purposes
 		userID := claims.UserID
+		email := claims.Email
+		name := claims.Name
+		role := claims.Role
+
+		// If this is a CMS-issued admin token (UserID is 0 but Sub is set)
+		if userID == 0 && claims.Sub != "" {
+			userID = 1
+			email = claims.Email
+			name = claims.Sub
+		}
+
 		user := models.User{
 			ID:       userID,
-			Email:    claims.Email,
-			Name:     claims.Name,
-			Role:     claims.Role,
+			Email:    email,
+			Name:     name,
+			Role:     role,
 			IsActive: true,
 		}
 
