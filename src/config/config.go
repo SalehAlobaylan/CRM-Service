@@ -15,8 +15,9 @@ type Config struct {
 	DatabaseURL string
 
 	// JWT
-	JWTSecret string
-	JWTIssuer string
+	JWTSecret         string
+	JWTIssuer         string
+	JWTAllowedIssuers []string
 
 	// CORS
 	CORSAllowedOrigins []string
@@ -35,8 +36,9 @@ func Load() *Config {
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/crm_db?sslmode=disable"),
 
 		// JWT
-		JWTSecret: getEnv("JWT_SECRET", "your-super-secret-key-change-in-production"),
-		JWTIssuer: getEnv("JWT_ISSUER", "cms"),
+		JWTSecret:         getEnv("JWT_SECRET", "your-super-secret-key-change-in-production"),
+		JWTIssuer:         getEnv("JWT_ISSUER", "iam-authorization-service"),
+		JWTAllowedIssuers: getEnvAsSlice("JWT_ALLOWED_ISSUERS", []string{"iam-authorization-service", "cms-service"}),
 
 		// CORS
 		CORSAllowedOrigins: getEnvAsSlice("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:3001"}),

@@ -17,8 +17,9 @@ func (Tag) TableName() string {
 
 // CustomerTag represents the join table for customer-tag relationship
 type CustomerTag struct {
-	CustomerID uint `gorm:"primaryKey" json:"customer_id"`
-	TagID      uint `gorm:"primaryKey" json:"tag_id"`
+	CustomerID uint   `gorm:"primaryKey" json:"customer_id"`
+	TagID      uint   `gorm:"primaryKey" json:"tag_id"`
+	TenantID   string `gorm:"size:64;not null;default:default;index" json:"tenant_id"`
 }
 
 // TableName specifies the table name for CustomerTag

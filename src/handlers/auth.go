@@ -30,9 +30,9 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 	}
 
 	// Get permissions for user's role
-	permissions := models.RolePermissions[user.Role]
-	if permissions == nil {
-		permissions = []string{}
+	permissions := user.Permissions
+	if len(permissions) == 0 {
+		permissions = models.RolePermissions[user.Role]
 	}
 
 	response := models.MeResponse{

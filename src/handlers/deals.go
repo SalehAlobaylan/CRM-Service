@@ -62,6 +62,11 @@ type DealStageTransitionRequest struct {
 // ListDeals returns a paginated list of deals with filtering
 // GET /admin/deals
 func (h *DealHandler) ListDeals(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	// Pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -72,7 +77,7 @@ func (h *DealHandler) ListDeals(c *gin.Context) {
 		pageSize = 20
 	}
 
-	query := h.db.Model(&models.Deal{})
+	query := db.Model(&models.Deal{})
 
 	// Filters
 	if stage := c.Query("stage"); stage != "" {
@@ -154,6 +159,11 @@ func (h *DealHandler) ListDeals(c *gin.Context) {
 // CreateDeal creates a new deal
 // POST /admin/deals
 func (h *DealHandler) CreateDeal(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	var req DealCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -166,7 +176,7 @@ func (h *DealHandler) CreateDeal(c *gin.Context) {
 
 	// Verify customer exists
 	var customer models.Customer
-	if err := h.db.First(&customer, req.CustomerID).Error; err != nil {
+	if err := db.First(&customer, req.CustomerID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":   "validation_error",
@@ -203,6 +213,9 @@ func (h *DealHandler) CreateDeal(c *gin.Context) {
 	}
 
 	deal := models.Deal{
+		BaseModel: models.BaseModel{
+			TenantID: tenantID,
+		},
 		Title:             req.Title,
 		Description:       req.Description,
 		CustomerID:        req.CustomerID,
@@ -215,7 +228,7 @@ func (h *DealHandler) CreateDeal(c *gin.Context) {
 		OwnerID:           req.OwnerID,
 	}
 
-	if err := h.db.Create(&deal).Error; err != nil {
+	if err := db.Create(&deal).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -225,7 +238,7 @@ func (h *DealHandler) CreateDeal(c *gin.Context) {
 	}
 
 	// Reload with customer
-	h.db.Preload("Customer").First(&deal, deal.ID)
+	db.Preload("Customer").First(&deal, deal.ID)
 
 	// Log audit
 	h.logAudit(c, "deal", deal.ID, models.AuditActionCreate, nil, &deal)
@@ -236,6 +249,11 @@ func (h *DealHandler) CreateDeal(c *gin.Context) {
 // GetDeal returns a single deal by ID
 // GET /admin/deals/:id
 func (h *DealHandler) GetDeal(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -247,7 +265,7 @@ func (h *DealHandler) GetDeal(c *gin.Context) {
 	}
 
 	var deal models.Deal
-	if err := h.db.Preload("Customer").Preload("Contact").Preload("Activities").Preload("Notes").First(&deal, id).Error; err != nil {
+	if err := db.Preload("Customer").Preload("Contact").Preload("Activities").Preload("Notes").First(&deal, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -270,6 +288,11 @@ func (h *DealHandler) GetDeal(c *gin.Context) {
 // UpdateDeal updates a deal
 // PUT /admin/deals/:id
 func (h *DealHandler) UpdateDeal(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -281,7 +304,7 @@ func (h *DealHandler) UpdateDeal(c *gin.Context) {
 	}
 
 	var deal models.Deal
-	if err := h.db.First(&deal, id).Error; err != nil {
+	if err := db.First(&deal, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -363,7 +386,7 @@ func (h *DealHandler) UpdateDeal(c *gin.Context) {
 		deal.LostReason = req.LostReason
 	}
 
-	if err := h.db.Save(&deal).Error; err != nil {
+	if err := db.Save(&deal).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -373,7 +396,7 @@ func (h *DealHandler) UpdateDeal(c *gin.Context) {
 	}
 
 	// Reload with customer
-	h.db.Preload("Customer").First(&deal, deal.ID)
+	db.Preload("Customer").First(&deal, deal.ID)
 
 	// Log audit
 	h.logAudit(c, "deal", deal.ID, models.AuditActionUpdate, &oldDeal, &deal)
@@ -384,6 +407,11 @@ func (h *DealHandler) UpdateDeal(c *gin.Context) {
 // PatchDeal handles stage transitions
 // PATCH /admin/deals/:id
 func (h *DealHandler) PatchDeal(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -395,7 +423,7 @@ func (h *DealHandler) PatchDeal(c *gin.Context) {
 	}
 
 	var deal models.Deal
-	if err := h.db.First(&deal, id).Error; err != nil {
+	if err := db.First(&deal, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -446,7 +474,7 @@ func (h *DealHandler) PatchDeal(c *gin.Context) {
 		}
 	}
 
-	if err := h.db.Save(&deal).Error; err != nil {
+	if err := db.Save(&deal).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -456,7 +484,7 @@ func (h *DealHandler) PatchDeal(c *gin.Context) {
 	}
 
 	// Reload with customer
-	h.db.Preload("Customer").First(&deal, deal.ID)
+	db.Preload("Customer").First(&deal, deal.ID)
 
 	// Log audit
 	h.logAudit(c, "deal", deal.ID, models.AuditActionUpdate, &oldDeal, &deal)
@@ -467,6 +495,11 @@ func (h *DealHandler) PatchDeal(c *gin.Context) {
 // DeleteDeal soft-deletes a deal
 // DELETE /admin/deals/:id
 func (h *DealHandler) DeleteDeal(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -478,7 +511,7 @@ func (h *DealHandler) DeleteDeal(c *gin.Context) {
 	}
 
 	var deal models.Deal
-	if err := h.db.First(&deal, id).Error; err != nil {
+	if err := db.First(&deal, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -495,7 +528,7 @@ func (h *DealHandler) DeleteDeal(c *gin.Context) {
 		return
 	}
 
-	if err := h.db.Delete(&deal).Error; err != nil {
+	if err := db.Delete(&deal).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -515,8 +548,13 @@ func (h *DealHandler) DeleteDeal(c *gin.Context) {
 // logAudit creates an audit log entry
 func (h *DealHandler) logAudit(c *gin.Context, resourceType string, resourceID uint, action models.AuditAction, oldValue, newValue interface{}) {
 	user, _ := middleware.GetUserFromContext(c)
+	_, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
 
 	audit := models.AuditLog{
+		TenantID:     tenantID,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		Action:       action,

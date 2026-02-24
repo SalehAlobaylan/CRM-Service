@@ -9,6 +9,7 @@ import (
 // BaseModel contains common columns for all tables
 type BaseModel struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
+	TenantID  string         `gorm:"size:64;not null;default:default;index" json:"tenant_id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`
@@ -18,11 +19,11 @@ type BaseModel struct {
 type CustomerStatus string
 
 const (
-	CustomerStatusLead      CustomerStatus = "lead"
-	CustomerStatusProspect  CustomerStatus = "prospect"
-	CustomerStatusActive    CustomerStatus = "active"
-	CustomerStatusInactive  CustomerStatus = "inactive"
-	CustomerStatusChurned   CustomerStatus = "churned"
+	CustomerStatusLead     CustomerStatus = "lead"
+	CustomerStatusProspect CustomerStatus = "prospect"
+	CustomerStatusActive   CustomerStatus = "active"
+	CustomerStatusInactive CustomerStatus = "inactive"
+	CustomerStatusChurned  CustomerStatus = "churned"
 )
 
 // Customer represents a customer in the CRM
@@ -40,10 +41,10 @@ type Customer struct {
 	Notes          string         `gorm:"type:text" json:"notes,omitempty"`
 
 	// Relations
-	Contacts   []Contact   `gorm:"foreignKey:CustomerID" json:"contacts,omitempty"`
-	Deals      []Deal      `gorm:"foreignKey:CustomerID" json:"deals,omitempty"`
-	Activities []Activity  `gorm:"foreignKey:CustomerID" json:"activities,omitempty"`
-	Tags       []Tag       `gorm:"many2many:customer_tags;" json:"tags,omitempty"`
+	Contacts   []Contact  `gorm:"foreignKey:CustomerID" json:"contacts,omitempty"`
+	Deals      []Deal     `gorm:"foreignKey:CustomerID" json:"deals,omitempty"`
+	Activities []Activity `gorm:"foreignKey:CustomerID" json:"activities,omitempty"`
+	Tags       []Tag      `gorm:"many2many:customer_tags;" json:"tags,omitempty"`
 }
 
 // TableName specifies the table name for Customer
@@ -63,8 +64,8 @@ type CustomerListResponse struct {
 // CustomerDetailResponse includes customer with related entities summary
 type CustomerDetailResponse struct {
 	Customer
-	ContactsCount          int        `json:"contacts_count"`
-	OpenDealsCount         int        `json:"open_deals_count"`
-	UpcomingActivitiesCount int       `json:"upcoming_activities_count"`
-	RecentActivities       []Activity `json:"recent_activities,omitempty"`
+	ContactsCount           int        `json:"contacts_count"`
+	OpenDealsCount          int        `json:"open_deals_count"`
+	UpcomingActivitiesCount int        `json:"upcoming_activities_count"`
+	RecentActivities        []Activity `json:"recent_activities,omitempty"`
 }

@@ -25,17 +25,17 @@ func NewActivityHandler(db *gorm.DB) *ActivityHandler {
 
 // ActivityCreateRequest represents the request body for creating an activity
 type ActivityCreateRequest struct {
-	Title       string               `json:"title" binding:"required,min=1,max=255"`
-	Description string               `json:"description,omitempty"`
-	Type        models.ActivityType  `json:"type" binding:"required"`
+	Title       string                `json:"title" binding:"required,min=1,max=255"`
+	Description string                `json:"description,omitempty"`
+	Type        models.ActivityType   `json:"type" binding:"required"`
 	Status      models.ActivityStatus `json:"status,omitempty"`
-	CustomerID  *uint                `json:"customer_id,omitempty"`
-	DealID      *uint                `json:"deal_id,omitempty"`
-	ContactID   *uint                `json:"contact_id,omitempty"`
-	AssignedTo  *uint                `json:"assigned_to,omitempty"`
-	DueDate     *time.Time           `json:"due_date,omitempty"`
-	Duration    int                  `json:"duration,omitempty"`
-	Priority    string               `json:"priority,omitempty"`
+	CustomerID  *uint                 `json:"customer_id,omitempty"`
+	DealID      *uint                 `json:"deal_id,omitempty"`
+	ContactID   *uint                 `json:"contact_id,omitempty"`
+	AssignedTo  *uint                 `json:"assigned_to,omitempty"`
+	DueDate     *time.Time            `json:"due_date,omitempty"`
+	Duration    int                   `json:"duration,omitempty"`
+	Priority    string                `json:"priority,omitempty"`
 }
 
 // ActivityUpdateRequest represents the request body for updating an activity
@@ -64,6 +64,11 @@ type ActivityStatusUpdateRequest struct {
 // ListActivities returns a paginated list of activities with filtering
 // GET /admin/activities
 func (h *ActivityHandler) ListActivities(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	// Pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -74,7 +79,7 @@ func (h *ActivityHandler) ListActivities(c *gin.Context) {
 		pageSize = 20
 	}
 
-	query := h.db.Model(&models.Activity{})
+	query := db.Model(&models.Activity{})
 
 	// Filters
 	if activityType := c.Query("type"); activityType != "" {
@@ -165,6 +170,11 @@ func (h *ActivityHandler) GetMyActivities(c *gin.Context) {
 		return
 	}
 
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	// Pagination
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -175,7 +185,7 @@ func (h *ActivityHandler) GetMyActivities(c *gin.Context) {
 		pageSize = 20
 	}
 
-	query := h.db.Model(&models.Activity{}).Where("assigned_to = ?", user.ID)
+	query := db.Model(&models.Activity{}).Where("assigned_to = ?", user.ID)
 
 	// Filter by status (default to scheduled/overdue for "my tasks")
 	if status := c.Query("status"); status != "" {
@@ -221,6 +231,11 @@ func (h *ActivityHandler) GetMyActivities(c *gin.Context) {
 // CreateActivity creates a new activity
 // POST /admin/activities
 func (h *ActivityHandler) CreateActivity(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	var req ActivityCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -252,6 +267,9 @@ func (h *ActivityHandler) CreateActivity(c *gin.Context) {
 	}
 
 	activity := models.Activity{
+		BaseModel: models.BaseModel{
+			TenantID: tenantID,
+		},
 		Title:       req.Title,
 		Description: req.Description,
 		Type:        req.Type,
@@ -265,7 +283,7 @@ func (h *ActivityHandler) CreateActivity(c *gin.Context) {
 		Priority:    priority,
 	}
 
-	if err := h.db.Create(&activity).Error; err != nil {
+	if err := db.Create(&activity).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -275,7 +293,7 @@ func (h *ActivityHandler) CreateActivity(c *gin.Context) {
 	}
 
 	// Reload with relations
-	h.db.Preload("Customer").Preload("Deal").First(&activity, activity.ID)
+	db.Preload("Customer").Preload("Deal").First(&activity, activity.ID)
 
 	// Log audit
 	h.logAudit(c, "activity", activity.ID, models.AuditActionCreate, nil, &activity)
@@ -286,6 +304,11 @@ func (h *ActivityHandler) CreateActivity(c *gin.Context) {
 // GetActivity returns a single activity by ID
 // GET /admin/activities/:id
 func (h *ActivityHandler) GetActivity(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -297,7 +320,7 @@ func (h *ActivityHandler) GetActivity(c *gin.Context) {
 	}
 
 	var activity models.Activity
-	if err := h.db.Preload("Customer").Preload("Deal").Preload("Contact").First(&activity, id).Error; err != nil {
+	if err := db.Preload("Customer").Preload("Deal").Preload("Contact").First(&activity, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -320,6 +343,11 @@ func (h *ActivityHandler) GetActivity(c *gin.Context) {
 // UpdateActivity updates an activity
 // PUT /admin/activities/:id
 func (h *ActivityHandler) UpdateActivity(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -331,7 +359,7 @@ func (h *ActivityHandler) UpdateActivity(c *gin.Context) {
 	}
 
 	var activity models.Activity
-	if err := h.db.First(&activity, id).Error; err != nil {
+	if err := db.First(&activity, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -401,7 +429,7 @@ func (h *ActivityHandler) UpdateActivity(c *gin.Context) {
 		activity.Priority = req.Priority
 	}
 
-	if err := h.db.Save(&activity).Error; err != nil {
+	if err := db.Save(&activity).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -411,7 +439,7 @@ func (h *ActivityHandler) UpdateActivity(c *gin.Context) {
 	}
 
 	// Reload with relations
-	h.db.Preload("Customer").Preload("Deal").First(&activity, activity.ID)
+	db.Preload("Customer").Preload("Deal").First(&activity, activity.ID)
 
 	// Log audit
 	h.logAudit(c, "activity", activity.ID, models.AuditActionUpdate, &oldActivity, &activity)
@@ -422,6 +450,11 @@ func (h *ActivityHandler) UpdateActivity(c *gin.Context) {
 // PatchActivity handles status updates (complete/cancel)
 // PATCH /admin/activities/:id
 func (h *ActivityHandler) PatchActivity(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -433,7 +466,7 @@ func (h *ActivityHandler) PatchActivity(c *gin.Context) {
 	}
 
 	var activity models.Activity
-	if err := h.db.First(&activity, id).Error; err != nil {
+	if err := db.First(&activity, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -475,7 +508,7 @@ func (h *ActivityHandler) PatchActivity(c *gin.Context) {
 		activity.Outcome = req.Outcome
 	}
 
-	if err := h.db.Save(&activity).Error; err != nil {
+	if err := db.Save(&activity).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -485,7 +518,7 @@ func (h *ActivityHandler) PatchActivity(c *gin.Context) {
 	}
 
 	// Reload with relations
-	h.db.Preload("Customer").Preload("Deal").First(&activity, activity.ID)
+	db.Preload("Customer").Preload("Deal").First(&activity, activity.ID)
 
 	// Log audit
 	h.logAudit(c, "activity", activity.ID, models.AuditActionUpdate, &oldActivity, &activity)
@@ -496,6 +529,11 @@ func (h *ActivityHandler) PatchActivity(c *gin.Context) {
 // DeleteActivity soft-deletes an activity
 // DELETE /admin/activities/:id
 func (h *ActivityHandler) DeleteActivity(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -507,7 +545,7 @@ func (h *ActivityHandler) DeleteActivity(c *gin.Context) {
 	}
 
 	var activity models.Activity
-	if err := h.db.First(&activity, id).Error; err != nil {
+	if err := db.First(&activity, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -524,7 +562,7 @@ func (h *ActivityHandler) DeleteActivity(c *gin.Context) {
 		return
 	}
 
-	if err := h.db.Delete(&activity).Error; err != nil {
+	if err := db.Delete(&activity).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -544,8 +582,13 @@ func (h *ActivityHandler) DeleteActivity(c *gin.Context) {
 // logAudit creates an audit log entry
 func (h *ActivityHandler) logAudit(c *gin.Context, resourceType string, resourceID uint, action models.AuditAction, oldValue, newValue interface{}) {
 	user, _ := middleware.GetUserFromContext(c)
+	_, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
 
 	audit := models.AuditLog{
+		TenantID:     tenantID,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		Action:       action,

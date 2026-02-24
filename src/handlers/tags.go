@@ -35,8 +35,13 @@ type TagUpdateRequest struct {
 // ListTags returns all tags
 // GET /admin/tags
 func (h *TagHandler) ListTags(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	var tags []models.Tag
-	if err := h.db.Order("name ASC").Find(&tags).Error; err != nil {
+	if err := db.Order("name ASC").Find(&tags).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -54,6 +59,11 @@ func (h *TagHandler) ListTags(c *gin.Context) {
 // CreateTag creates a new tag
 // POST /admin/tags
 func (h *TagHandler) CreateTag(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	var req TagCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -66,7 +76,7 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 
 	// Check uniqueness
 	var existing models.Tag
-	if err := h.db.Where("name = ?", req.Name).First(&existing).Error; err == nil {
+	if err := db.Where("name = ?", req.Name).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{
 			"error":   "conflict",
 			"code":    "TAG_EXISTS",
@@ -76,11 +86,14 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 	}
 
 	tag := models.Tag{
+		BaseModel: models.BaseModel{
+			TenantID: tenantID,
+		},
 		Name:  req.Name,
 		Color: req.Color,
 	}
 
-	if err := h.db.Create(&tag).Error; err != nil {
+	if err := db.Create(&tag).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -98,6 +111,11 @@ func (h *TagHandler) CreateTag(c *gin.Context) {
 // UpdateTag updates a tag
 // PUT /admin/tags/:id
 func (h *TagHandler) UpdateTag(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -109,7 +127,7 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 	}
 
 	var tag models.Tag
-	if err := h.db.First(&tag, id).Error; err != nil {
+	if err := db.First(&tag, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -141,7 +159,7 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 	// Check uniqueness if name is being changed
 	if req.Name != "" && req.Name != tag.Name {
 		var existing models.Tag
-		if err := h.db.Where("name = ? AND id != ?", req.Name, id).First(&existing).Error; err == nil {
+		if err := db.Where("name = ? AND id != ?", req.Name, id).First(&existing).Error; err == nil {
 			c.JSON(http.StatusConflict, gin.H{
 				"error":   "conflict",
 				"code":    "TAG_EXISTS",
@@ -156,7 +174,7 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 		tag.Color = req.Color
 	}
 
-	if err := h.db.Save(&tag).Error; err != nil {
+	if err := db.Save(&tag).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -174,6 +192,11 @@ func (h *TagHandler) UpdateTag(c *gin.Context) {
 // DeleteTag deletes a tag
 // DELETE /admin/tags/:id
 func (h *TagHandler) DeleteTag(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -185,7 +208,7 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 	}
 
 	var tag models.Tag
-	if err := h.db.First(&tag, id).Error; err != nil {
+	if err := db.First(&tag, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -202,11 +225,11 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 		return
 	}
 
-	// Remove associations
-	h.db.Model(&tag).Association("Customers").Clear()
+	// Remove associations for the same tenant.
+	db.Where("tag_id = ? AND tenant_id = ?", tag.ID, tenantID).Delete(&models.CustomerTag{})
 
 	// Delete tag
-	if err := h.db.Delete(&tag).Error; err != nil {
+	if err := db.Delete(&tag).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -226,6 +249,11 @@ func (h *TagHandler) DeleteTag(c *gin.Context) {
 // AssignTagToCustomer assigns a tag to a customer
 // POST /admin/customers/:id/tags/:tagId
 func (h *TagHandler) AssignTagToCustomer(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	customerID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -248,7 +276,7 @@ func (h *TagHandler) AssignTagToCustomer(c *gin.Context) {
 
 	// Verify customer exists
 	var customer models.Customer
-	if err := h.db.First(&customer, customerID).Error; err != nil {
+	if err := db.First(&customer, customerID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -267,7 +295,7 @@ func (h *TagHandler) AssignTagToCustomer(c *gin.Context) {
 
 	// Verify tag exists
 	var tag models.Tag
-	if err := h.db.First(&tag, tagID).Error; err != nil {
+	if err := db.First(&tag, tagID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -284,8 +312,14 @@ func (h *TagHandler) AssignTagToCustomer(c *gin.Context) {
 		return
 	}
 
-	// Add association
-	if err := h.db.Model(&customer).Association("Tags").Append(&tag); err != nil {
+	// Add association explicitly with tenant scope.
+	association := models.CustomerTag{
+		CustomerID: uint(customerID),
+		TagID:      uint(tagID),
+		TenantID:   tenantID,
+	}
+	if err := db.Where("customer_id = ? AND tag_id = ? AND tenant_id = ?", association.CustomerID, association.TagID, association.TenantID).
+		FirstOrCreate(&association).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -302,6 +336,11 @@ func (h *TagHandler) AssignTagToCustomer(c *gin.Context) {
 // RemoveTagFromCustomer removes a tag from a customer
 // DELETE /admin/customers/:id/tags/:tagId
 func (h *TagHandler) RemoveTagFromCustomer(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	customerID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -324,7 +363,7 @@ func (h *TagHandler) RemoveTagFromCustomer(c *gin.Context) {
 
 	// Verify customer exists
 	var customer models.Customer
-	if err := h.db.First(&customer, customerID).Error; err != nil {
+	if err := db.First(&customer, customerID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -343,7 +382,7 @@ func (h *TagHandler) RemoveTagFromCustomer(c *gin.Context) {
 
 	// Verify tag exists
 	var tag models.Tag
-	if err := h.db.First(&tag, tagID).Error; err != nil {
+	if err := db.First(&tag, tagID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -360,8 +399,9 @@ func (h *TagHandler) RemoveTagFromCustomer(c *gin.Context) {
 		return
 	}
 
-	// Remove association
-	if err := h.db.Model(&customer).Association("Tags").Delete(&tag); err != nil {
+	// Remove association with tenant scope.
+	if err := db.Where("customer_id = ? AND tag_id = ? AND tenant_id = ?", customerID, tagID, tenantID).
+		Delete(&models.CustomerTag{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -378,8 +418,13 @@ func (h *TagHandler) RemoveTagFromCustomer(c *gin.Context) {
 // logAudit creates an audit log entry
 func (h *TagHandler) logAudit(c *gin.Context, resourceType string, resourceID uint, action models.AuditAction, oldValue, newValue interface{}) {
 	user, _ := middleware.GetUserFromContext(c)
+	_, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
 
 	audit := models.AuditLog{
+		TenantID:     tenantID,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		Action:       action,

@@ -46,6 +46,11 @@ type ContactUpdateRequest struct {
 // ListContacts returns all contacts for a customer
 // GET /admin/customers/:id/contacts
 func (h *ContactHandler) ListContacts(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	customerID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -58,7 +63,7 @@ func (h *ContactHandler) ListContacts(c *gin.Context) {
 
 	// Verify customer exists
 	var customer models.Customer
-	if err := h.db.First(&customer, customerID).Error; err != nil {
+	if err := db.First(&customer, customerID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -87,11 +92,11 @@ func (h *ContactHandler) ListContacts(c *gin.Context) {
 
 	// Get contacts
 	var total int64
-	h.db.Model(&models.Contact{}).Where("customer_id = ?", customerID).Count(&total)
+	db.Model(&models.Contact{}).Where("customer_id = ?", customerID).Count(&total)
 
 	var contacts []models.Contact
 	offset := (page - 1) * pageSize
-	if err := h.db.Where("customer_id = ?", customerID).
+	if err := db.Where("customer_id = ?", customerID).
 		Order("is_primary DESC, created_at ASC").
 		Offset(offset).Limit(pageSize).
 		Find(&contacts).Error; err != nil {
@@ -117,6 +122,11 @@ func (h *ContactHandler) ListContacts(c *gin.Context) {
 // CreateContact creates a new contact for a customer
 // POST /admin/customers/:id/contacts
 func (h *ContactHandler) CreateContact(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	customerID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -129,7 +139,7 @@ func (h *ContactHandler) CreateContact(c *gin.Context) {
 
 	// Verify customer exists
 	var customer models.Customer
-	if err := h.db.First(&customer, customerID).Error; err != nil {
+	if err := db.First(&customer, customerID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -158,10 +168,13 @@ func (h *ContactHandler) CreateContact(c *gin.Context) {
 
 	// If this is set as primary, unset other primaries
 	if req.IsPrimary {
-		h.db.Model(&models.Contact{}).Where("customer_id = ?", customerID).Update("is_primary", false)
+		db.Model(&models.Contact{}).Where("customer_id = ?", customerID).Update("is_primary", false)
 	}
 
 	contact := models.Contact{
+		BaseModel: models.BaseModel{
+			TenantID: tenantID,
+		},
 		CustomerID: uint(customerID),
 		FirstName:  req.FirstName,
 		LastName:   req.LastName,
@@ -172,7 +185,7 @@ func (h *ContactHandler) CreateContact(c *gin.Context) {
 		Notes:      req.Notes,
 	}
 
-	if err := h.db.Create(&contact).Error; err != nil {
+	if err := db.Create(&contact).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -190,6 +203,11 @@ func (h *ContactHandler) CreateContact(c *gin.Context) {
 // UpdateContact updates a contact
 // PUT /admin/contacts/:id
 func (h *ContactHandler) UpdateContact(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -201,7 +219,7 @@ func (h *ContactHandler) UpdateContact(c *gin.Context) {
 	}
 
 	var contact models.Contact
-	if err := h.db.First(&contact, id).Error; err != nil {
+	if err := db.First(&contact, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -252,12 +270,12 @@ func (h *ContactHandler) UpdateContact(c *gin.Context) {
 	if req.IsPrimary != nil {
 		// If setting as primary, unset other primaries
 		if *req.IsPrimary {
-			h.db.Model(&models.Contact{}).Where("customer_id = ? AND id != ?", contact.CustomerID, id).Update("is_primary", false)
+			db.Model(&models.Contact{}).Where("customer_id = ? AND id != ?", contact.CustomerID, id).Update("is_primary", false)
 		}
 		contact.IsPrimary = *req.IsPrimary
 	}
 
-	if err := h.db.Save(&contact).Error; err != nil {
+	if err := db.Save(&contact).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -275,6 +293,11 @@ func (h *ContactHandler) UpdateContact(c *gin.Context) {
 // DeleteContact deletes a contact
 // DELETE /admin/contacts/:id
 func (h *ContactHandler) DeleteContact(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -286,7 +309,7 @@ func (h *ContactHandler) DeleteContact(c *gin.Context) {
 	}
 
 	var contact models.Contact
-	if err := h.db.First(&contact, id).Error; err != nil {
+	if err := db.First(&contact, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -303,7 +326,7 @@ func (h *ContactHandler) DeleteContact(c *gin.Context) {
 		return
 	}
 
-	if err := h.db.Delete(&contact).Error; err != nil {
+	if err := db.Delete(&contact).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -323,8 +346,13 @@ func (h *ContactHandler) DeleteContact(c *gin.Context) {
 // logAudit creates an audit log entry
 func (h *ContactHandler) logAudit(c *gin.Context, resourceType string, resourceID uint, action models.AuditAction, oldValue, newValue interface{}) {
 	user, _ := middleware.GetUserFromContext(c)
+	_, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
 
 	audit := models.AuditLog{
+		TenantID:     tenantID,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		Action:       action,

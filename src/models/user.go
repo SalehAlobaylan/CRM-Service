@@ -2,11 +2,15 @@ package models
 
 // User represents user information extracted from JWT (CRM doesn't store users)
 type User struct {
-	ID       uint   `json:"id"`
-	Email    string `json:"email,omitempty"`
-	Name     string `json:"name,omitempty"`
-	Role     string `json:"role"`
-	IsActive bool   `json:"is_active"`
+	ID          uint     `json:"id"`
+	ExternalID  string   `json:"external_id,omitempty"`
+	Email       string   `json:"email,omitempty"`
+	Name        string   `json:"name,omitempty"`
+	TenantID    string   `json:"tenant_id"`
+	Role        string   `json:"role"`
+	Roles       []string `json:"roles,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
+	IsActive    bool     `json:"is_active"`
 }
 
 // Role constants

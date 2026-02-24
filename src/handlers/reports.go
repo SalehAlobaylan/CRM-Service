@@ -20,11 +20,11 @@ func NewReportHandler(db *gorm.DB) *ReportHandler {
 
 // OverviewReport represents the overview report response
 type OverviewReport struct {
-	Customers     CustomerStats     `json:"customers"`
-	Deals         DealStats         `json:"deals"`
-	Activities    ActivityStats     `json:"activities"`
-	RecentDeals   []models.Deal     `json:"recent_deals"`
-	TopCustomers  []CustomerSummary `json:"top_customers"`
+	Customers    CustomerStats     `json:"customers"`
+	Deals        DealStats         `json:"deals"`
+	Activities   ActivityStats     `json:"activities"`
+	RecentDeals  []models.Deal     `json:"recent_deals"`
+	TopCustomers []CustomerSummary `json:"top_customers"`
 }
 
 // CustomerStats represents customer statistics
@@ -47,11 +47,11 @@ type DealStats struct {
 
 // ActivityStats represents activity statistics
 type ActivityStats struct {
-	Total       int64            `json:"total"`
-	Scheduled   int64            `json:"scheduled"`
-	Completed   int64            `json:"completed"`
-	Overdue     int64            `json:"overdue"`
-	ByType      map[string]int64 `json:"by_type"`
+	Total     int64            `json:"total"`
+	Scheduled int64            `json:"scheduled"`
+	Completed int64            `json:"completed"`
+	Overdue   int64            `json:"overdue"`
+	ByType    map[string]int64 `json:"by_type"`
 }
 
 // CustomerSummary represents a customer summary for reports
@@ -67,31 +67,36 @@ type CustomerSummary struct {
 // GetOverview returns an overview report
 // GET /admin/reports/overview
 func (h *ReportHandler) GetOverview(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	report := OverviewReport{
-		Customers:  h.getCustomerStats(),
-		Deals:      h.getDealStats(),
-		Activities: h.getActivityStats(),
+		Customers:  h.getCustomerStats(db),
+		Deals:      h.getDealStats(db),
+		Activities: h.getActivityStats(db),
 	}
 
 	// Get recent deals
 	var recentDeals []models.Deal
-	h.db.Preload("Customer").Order("created_at DESC").Limit(5).Find(&recentDeals)
+	db.Preload("Customer").Order("created_at DESC").Limit(5).Find(&recentDeals)
 	report.RecentDeals = recentDeals
 
 	// Get top customers by deal value
-	report.TopCustomers = h.getTopCustomers(5)
+	report.TopCustomers = h.getTopCustomers(db, 5)
 
 	c.JSON(http.StatusOK, report)
 }
 
 // getCustomerStats returns customer statistics
-func (h *ReportHandler) getCustomerStats() CustomerStats {
+func (h *ReportHandler) getCustomerStats(db *gorm.DB) CustomerStats {
 	stats := CustomerStats{
 		ByStatus: make(map[string]int64),
 	}
 
 	// Total customers
-	h.db.Model(&models.Customer{}).Count(&stats.Total)
+	db.Model(&models.Customer{}).Count(&stats.Total)
 
 	// By status
 	statuses := []models.CustomerStatus{
@@ -104,7 +109,7 @@ func (h *ReportHandler) getCustomerStats() CustomerStats {
 
 	for _, status := range statuses {
 		var count int64
-		h.db.Model(&models.Customer{}).Where("status = ?", status).Count(&count)
+		db.Model(&models.Customer{}).Where("status = ?", status).Count(&count)
 		stats.ByStatus[string(status)] = count
 	}
 
@@ -112,26 +117,26 @@ func (h *ReportHandler) getCustomerStats() CustomerStats {
 }
 
 // getDealStats returns deal statistics
-func (h *ReportHandler) getDealStats() DealStats {
+func (h *ReportHandler) getDealStats(db *gorm.DB) DealStats {
 	stats := DealStats{
 		ByStage: make(map[string]int64),
 	}
 
 	// Total deals
-	h.db.Model(&models.Deal{}).Count(&stats.Total)
+	db.Model(&models.Deal{}).Count(&stats.Total)
 
 	// Total value
-	h.db.Model(&models.Deal{}).Select("COALESCE(SUM(amount), 0)").Scan(&stats.TotalValue)
+	db.Model(&models.Deal{}).Select("COALESCE(SUM(amount), 0)").Scan(&stats.TotalValue)
 
 	// Won deals
-	h.db.Model(&models.Deal{}).Where("stage = ?", models.DealStageClosedWon).Count(&stats.WonCount)
-	h.db.Model(&models.Deal{}).Where("stage = ?", models.DealStageClosedWon).Select("COALESCE(SUM(amount), 0)").Scan(&stats.WonValue)
+	db.Model(&models.Deal{}).Where("stage = ?", models.DealStageClosedWon).Count(&stats.WonCount)
+	db.Model(&models.Deal{}).Where("stage = ?", models.DealStageClosedWon).Select("COALESCE(SUM(amount), 0)").Scan(&stats.WonValue)
 
 	// Lost deals
-	h.db.Model(&models.Deal{}).Where("stage = ?", models.DealStageClosedLost).Count(&stats.LostCount)
+	db.Model(&models.Deal{}).Where("stage = ?", models.DealStageClosedLost).Count(&stats.LostCount)
 
 	// Open deals
-	h.db.Model(&models.Deal{}).Where("stage NOT IN ?", []string{
+	db.Model(&models.Deal{}).Where("stage NOT IN ?", []string{
 		string(models.DealStageClosedWon),
 		string(models.DealStageClosedLost),
 	}).Count(&stats.OpenCount)
@@ -144,7 +149,7 @@ func (h *ReportHandler) getDealStats() DealStats {
 	// By stage
 	for _, stage := range models.ValidDealStages {
 		var count int64
-		h.db.Model(&models.Deal{}).Where("stage = ?", stage).Count(&count)
+		db.Model(&models.Deal{}).Where("stage = ?", stage).Count(&count)
 		stats.ByStage[string(stage)] = count
 	}
 
@@ -152,18 +157,18 @@ func (h *ReportHandler) getDealStats() DealStats {
 }
 
 // getActivityStats returns activity statistics
-func (h *ReportHandler) getActivityStats() ActivityStats {
+func (h *ReportHandler) getActivityStats(db *gorm.DB) ActivityStats {
 	stats := ActivityStats{
 		ByType: make(map[string]int64),
 	}
 
 	// Total activities
-	h.db.Model(&models.Activity{}).Count(&stats.Total)
+	db.Model(&models.Activity{}).Count(&stats.Total)
 
 	// By status
-	h.db.Model(&models.Activity{}).Where("status = ?", models.ActivityStatusScheduled).Count(&stats.Scheduled)
-	h.db.Model(&models.Activity{}).Where("status = ?", models.ActivityStatusCompleted).Count(&stats.Completed)
-	h.db.Model(&models.Activity{}).Where("status = ?", models.ActivityStatusOverdue).Count(&stats.Overdue)
+	db.Model(&models.Activity{}).Where("status = ?", models.ActivityStatusScheduled).Count(&stats.Scheduled)
+	db.Model(&models.Activity{}).Where("status = ?", models.ActivityStatusCompleted).Count(&stats.Completed)
+	db.Model(&models.Activity{}).Where("status = ?", models.ActivityStatusOverdue).Count(&stats.Overdue)
 
 	// By type
 	types := []models.ActivityType{
@@ -176,7 +181,7 @@ func (h *ReportHandler) getActivityStats() ActivityStats {
 
 	for _, t := range types {
 		var count int64
-		h.db.Model(&models.Activity{}).Where("type = ?", t).Count(&count)
+		db.Model(&models.Activity{}).Where("type = ?", t).Count(&count)
 		stats.ByType[string(t)] = count
 	}
 
@@ -184,10 +189,10 @@ func (h *ReportHandler) getActivityStats() ActivityStats {
 }
 
 // getTopCustomers returns top customers by deal value
-func (h *ReportHandler) getTopCustomers(limit int) []CustomerSummary {
+func (h *ReportHandler) getTopCustomers(db *gorm.DB, limit int) []CustomerSummary {
 	var results []CustomerSummary
 
-	h.db.Model(&models.Customer{}).
+	db.Model(&models.Customer{}).
 		Select("customers.id, customers.name, customers.email, customers.company, COUNT(deals.id) as deals_count, COALESCE(SUM(deals.amount), 0) as deals_value").
 		Joins("LEFT JOIN deals ON deals.customer_id = customers.id AND deals.deleted_at IS NULL").
 		Group("customers.id, customers.name, customers.email, customers.company").

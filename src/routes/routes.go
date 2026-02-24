@@ -65,7 +65,7 @@ func SetupRouter(db *gorm.DB, cfg *config.Config) *gin.Engine {
 
 	// Admin routes (JWT auth required)
 	admin := router.Group("/admin")
-	admin.Use(middleware.JWTAuth(cfg.JWTSecret))
+	admin.Use(middleware.JWTAuth(cfg.JWTSecret, cfg.JWTAllowedIssuers))
 	{
 		// Auth endpoints
 		admin.GET("/me", authHandler.GetMe)

@@ -16,6 +16,7 @@ const (
 // AuditLog represents an immutable audit trail entry
 type AuditLog struct {
 	ID           uint        `gorm:"primaryKey" json:"id"`
+	TenantID     string      `gorm:"size:64;not null;default:default;index" json:"tenant_id"`
 	ResourceType string      `gorm:"size:100;not null;index" json:"resource_type"` // customer, deal, activity, etc.
 	ResourceID   uint        `gorm:"not null;index" json:"resource_id"`
 	Action       AuditAction `gorm:"size:50;not null" json:"action"`

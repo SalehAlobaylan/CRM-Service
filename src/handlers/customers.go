@@ -26,29 +26,29 @@ func NewCustomerHandler(db *gorm.DB) *CustomerHandler {
 
 // CustomerCreateRequest represents the request body for creating a customer
 type CustomerCreateRequest struct {
-	Name           string              `json:"name" binding:"required,min=1,max=255"`
-	Email          string              `json:"email" binding:"required,email"`
-	Phone          string              `json:"phone,omitempty"`
-	Company        string              `json:"company,omitempty"`
-	Role           string              `json:"role,omitempty"`
+	Name           string                `json:"name" binding:"required,min=1,max=255"`
+	Email          string                `json:"email" binding:"required,email"`
+	Phone          string                `json:"phone,omitempty"`
+	Company        string                `json:"company,omitempty"`
+	Role           string                `json:"role,omitempty"`
 	Status         models.CustomerStatus `json:"status,omitempty"`
-	AssignedTo     *uint               `json:"assigned_to,omitempty"`
-	Notes          string              `json:"notes,omitempty"`
-	NextFollowUpAt *time.Time          `json:"next_follow_up_at,omitempty"`
+	AssignedTo     *uint                 `json:"assigned_to,omitempty"`
+	Notes          string                `json:"notes,omitempty"`
+	NextFollowUpAt *time.Time            `json:"next_follow_up_at,omitempty"`
 }
 
 // CustomerUpdateRequest represents the request body for updating a customer
 type CustomerUpdateRequest struct {
-	Name           string              `json:"name" binding:"omitempty,min=1,max=255"`
-	Email          string              `json:"email" binding:"omitempty,email"`
-	Phone          string              `json:"phone,omitempty"`
-	Company        string              `json:"company,omitempty"`
-	Role           string              `json:"role,omitempty"`
+	Name           string                `json:"name" binding:"omitempty,min=1,max=255"`
+	Email          string                `json:"email" binding:"omitempty,email"`
+	Phone          string                `json:"phone,omitempty"`
+	Company        string                `json:"company,omitempty"`
+	Role           string                `json:"role,omitempty"`
 	Status         models.CustomerStatus `json:"status,omitempty"`
-	AssignedTo     *uint               `json:"assigned_to,omitempty"`
-	Contacted      *bool               `json:"contacted,omitempty"`
-	Notes          string              `json:"notes,omitempty"`
-	NextFollowUpAt *time.Time          `json:"next_follow_up_at,omitempty"`
+	AssignedTo     *uint                 `json:"assigned_to,omitempty"`
+	Contacted      *bool                 `json:"contacted,omitempty"`
+	Notes          string                `json:"notes,omitempty"`
+	NextFollowUpAt *time.Time            `json:"next_follow_up_at,omitempty"`
 }
 
 // CustomerPatchRequest represents the request body for patching a customer
@@ -62,6 +62,11 @@ type CustomerPatchRequest struct {
 // ListCustomers returns a paginated list of customers with filtering
 // GET /admin/customers
 func (h *CustomerHandler) ListCustomers(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	// Pagination parameters
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -73,7 +78,7 @@ func (h *CustomerHandler) ListCustomers(c *gin.Context) {
 	}
 
 	// Build query
-	query := h.db.Model(&models.Customer{})
+	query := db.Model(&models.Customer{})
 
 	// Apply filters
 	if status := c.Query("status"); status != "" {
@@ -100,7 +105,8 @@ func (h *CustomerHandler) ListCustomers(c *gin.Context) {
 	if tagIDs := c.Query("tags"); tagIDs != "" {
 		ids := strings.Split(tagIDs, ",")
 		query = query.Joins("JOIN customer_tags ON customer_tags.customer_id = customers.id").
-			Where("customer_tags.tag_id IN ?", ids)
+			Where("customer_tags.tag_id IN ?", ids).
+			Where("customer_tags.tenant_id = customers.tenant_id")
 	}
 
 	// Sorting
@@ -147,6 +153,11 @@ func (h *CustomerHandler) ListCustomers(c *gin.Context) {
 // CreateCustomer creates a new customer
 // POST /admin/customers
 func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
+	db, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	var req CustomerCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -169,7 +180,7 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 
 	// Check email uniqueness
 	var existing models.Customer
-	if err := h.db.Where("email = ?", req.Email).First(&existing).Error; err == nil {
+	if err := db.Where("email = ?", req.Email).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{
 			"error":   "conflict",
 			"code":    "EMAIL_EXISTS",
@@ -185,6 +196,9 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 	}
 
 	customer := models.Customer{
+		BaseModel: models.BaseModel{
+			TenantID: tenantID,
+		},
 		Name:           req.Name,
 		Email:          req.Email,
 		Phone:          req.Phone,
@@ -196,7 +210,7 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 		NextFollowUpAt: req.NextFollowUpAt,
 	}
 
-	if err := h.db.Create(&customer).Error; err != nil {
+	if err := db.Create(&customer).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -214,6 +228,11 @@ func (h *CustomerHandler) CreateCustomer(c *gin.Context) {
 // GetCustomer returns a single customer by ID with related entities
 // GET /admin/customers/:id
 func (h *CustomerHandler) GetCustomer(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -225,7 +244,7 @@ func (h *CustomerHandler) GetCustomer(c *gin.Context) {
 	}
 
 	var customer models.Customer
-	if err := h.db.Preload("Tags").First(&customer, id).Error; err != nil {
+	if err := db.Preload("Tags").First(&customer, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -244,19 +263,19 @@ func (h *CustomerHandler) GetCustomer(c *gin.Context) {
 
 	// Get related counts
 	var contactsCount int64
-	h.db.Model(&models.Contact{}).Where("customer_id = ?", id).Count(&contactsCount)
+	db.Model(&models.Contact{}).Where("customer_id = ?", id).Count(&contactsCount)
 
 	var openDealsCount int64
-	h.db.Model(&models.Deal{}).Where("customer_id = ? AND stage NOT IN ?", id,
+	db.Model(&models.Deal{}).Where("customer_id = ? AND stage NOT IN ?", id,
 		[]string{string(models.DealStageClosedWon), string(models.DealStageClosedLost)}).Count(&openDealsCount)
 
 	var upcomingActivitiesCount int64
-	h.db.Model(&models.Activity{}).Where("customer_id = ? AND status = ? AND due_date > ?",
+	db.Model(&models.Activity{}).Where("customer_id = ? AND status = ? AND due_date > ?",
 		id, models.ActivityStatusScheduled, time.Now()).Count(&upcomingActivitiesCount)
 
 	// Get recent activities
 	var recentActivities []models.Activity
-	h.db.Where("customer_id = ?", id).Order("created_at DESC").Limit(5).Find(&recentActivities)
+	db.Where("customer_id = ?", id).Order("created_at DESC").Limit(5).Find(&recentActivities)
 
 	response := models.CustomerDetailResponse{
 		Customer:                customer,
@@ -272,6 +291,11 @@ func (h *CustomerHandler) GetCustomer(c *gin.Context) {
 // UpdateCustomer fully updates a customer
 // PUT /admin/customers/:id
 func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -283,7 +307,7 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 	}
 
 	var customer models.Customer
-	if err := h.db.First(&customer, id).Error; err != nil {
+	if err := db.First(&customer, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -324,7 +348,7 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 		}
 
 		var existing models.Customer
-		if err := h.db.Where("email = ? AND id != ?", req.Email, id).First(&existing).Error; err == nil {
+		if err := db.Where("email = ? AND id != ?", req.Email, id).First(&existing).Error; err == nil {
 			c.JSON(http.StatusConflict, gin.H{
 				"error":   "conflict",
 				"code":    "EMAIL_EXISTS",
@@ -364,7 +388,7 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 		customer.NextFollowUpAt = req.NextFollowUpAt
 	}
 
-	if err := h.db.Save(&customer).Error; err != nil {
+	if err := db.Save(&customer).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -382,6 +406,11 @@ func (h *CustomerHandler) UpdateCustomer(c *gin.Context) {
 // PatchCustomer partially updates a customer
 // PATCH /admin/customers/:id
 func (h *CustomerHandler) PatchCustomer(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -393,7 +422,7 @@ func (h *CustomerHandler) PatchCustomer(c *gin.Context) {
 	}
 
 	var customer models.Customer
-	if err := h.db.First(&customer, id).Error; err != nil {
+	if err := db.First(&customer, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -446,7 +475,7 @@ func (h *CustomerHandler) PatchCustomer(c *gin.Context) {
 		return
 	}
 
-	if err := h.db.Model(&customer).Updates(updates).Error; err != nil {
+	if err := db.Model(&customer).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -456,7 +485,7 @@ func (h *CustomerHandler) PatchCustomer(c *gin.Context) {
 	}
 
 	// Reload customer
-	h.db.First(&customer, id)
+	db.First(&customer, id)
 
 	// Log audit
 	h.logAudit(c, "customer", customer.ID, models.AuditActionUpdate, &oldCustomer, &customer)
@@ -467,6 +496,11 @@ func (h *CustomerHandler) PatchCustomer(c *gin.Context) {
 // DeleteCustomer soft-deletes a customer
 // DELETE /admin/customers/:id
 func (h *CustomerHandler) DeleteCustomer(c *gin.Context) {
+	db, _, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
+
 	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -478,7 +512,7 @@ func (h *CustomerHandler) DeleteCustomer(c *gin.Context) {
 	}
 
 	var customer models.Customer
-	if err := h.db.First(&customer, id).Error; err != nil {
+	if err := db.First(&customer, id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error":   "not_found",
@@ -496,7 +530,7 @@ func (h *CustomerHandler) DeleteCustomer(c *gin.Context) {
 	}
 
 	// Soft delete
-	if err := h.db.Delete(&customer).Error; err != nil {
+	if err := db.Delete(&customer).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "internal_error",
 			"code":    "DATABASE_ERROR",
@@ -516,8 +550,13 @@ func (h *CustomerHandler) DeleteCustomer(c *gin.Context) {
 // logAudit creates an audit log entry
 func (h *CustomerHandler) logAudit(c *gin.Context, resourceType string, resourceID uint, action models.AuditAction, oldValue, newValue interface{}) {
 	user, _ := middleware.GetUserFromContext(c)
+	_, tenantID, ok := tenantScopedDB(c, h.db)
+	if !ok {
+		return
+	}
 
 	audit := models.AuditLog{
+		TenantID:     tenantID,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
 		Action:       action,
