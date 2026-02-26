@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"log"
+	"net/url"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/SalehAlobaylan/CRM-Service/src/middleware"
 	"github.com/SalehAlobaylan/CRM-Service/src/routes"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -32,6 +35,7 @@ func main() {
 	defer middleware.Logger.Sync()
 
 	middleware.Logger.Info("Starting CRM Service...")
+	logCRMConnectionTargets(cfg)
 
 	// Connect to database
 	db, err := database.Connect(cfg)
@@ -88,4 +92,31 @@ func main() {
 	}
 
 	middleware.Logger.Info("Server exited gracefully")
+}
+
+func logCRMConnectionTargets(cfg *config.Config) {
+	corsOrigins := strings.Join(cfg.CORSAllowedOrigins, ",")
+	if strings.TrimSpace(corsOrigins) == "" {
+		corsOrigins = "(none configured)"
+	}
+
+	middleware.Logger.Info("CRM connection targets",
+		zap.String("server", ":"+cfg.ServerPort),
+		zap.String("database", crmDatabaseTarget(cfg.DatabaseURL)),
+		zap.String("jwt_issuer", cfg.JWTIssuer),
+		zap.String("jwt_allowed_issuers", strings.Join(cfg.JWTAllowedIssuers, ",")),
+		zap.String("cors_allowed_origins", corsOrigins),
+	)
+}
+
+func crmDatabaseTarget(dsn string) string {
+	parsed, err := url.Parse(dsn)
+	if err == nil && parsed.Host != "" {
+		dbName := strings.TrimPrefix(parsed.Path, "/")
+		if dbName == "" {
+			dbName = "(default)"
+		}
+		return parsed.Host + "/" + dbName
+	}
+	return "(unparsed DSN)"
 }
